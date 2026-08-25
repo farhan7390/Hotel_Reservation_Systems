@@ -122,9 +122,9 @@ public class BookingDBA {
         String sqlFallback = "SELECT base_night_rate FROM RoomCategories WHERE category_name = ?";
         try (PreparedStatement pstFallback = conn.prepareStatement(sqlFallback)) {
             pstFallback.setString(1, categoryName);
-            try (ResultSet rs = pstFallback.executeQuery()) {
-                if (rs.next()) {
-                    BigDecimal base = rs.getBigDecimal("base_night_rate");
+            try (ResultSet rsFallback = pstFallback.executeQuery()) {
+                if (rsFallback.next()) {
+                    BigDecimal base = rsFallback.getBigDecimal("base_night_rate");
                     double tierFactor = 1.0;
                     if (tierName.toLowerCase().contains("daycation")) tierFactor = 0.60;
                     else if (tierName.toLowerCase().contains("night")) tierFactor = 0.85;
@@ -182,17 +182,22 @@ public class BookingDBA {
         Connection conn = DBConnection.getConnection();
         if (conn == null) return false;
 
+        String guestEmail = null;
+        String resolvedCategoryName = "Standard Room";
+        String newBookingRef = "BKG-" + (System.currentTimeMillis() % 100000);
+
         try {
             conn.setAutoCommit(false);
 
             String guestId = null;
-            String findGuestSql = "SELECT guest_id FROM Guests WHERE phone = ? OR nid_passport = ?";
+            String findGuestSql = "SELECT guest_id, email FROM Guests WHERE phone = ? OR nid_passport = ?";
             try (PreparedStatement pstFind = conn.prepareStatement(findGuestSql)) {
                 pstFind.setString(1, contact);
                 pstFind.setString(2, nid);
                 try (ResultSet rs = pstFind.executeQuery()) {
                     if (rs.next()) {
                         guestId = rs.getString("guest_id");
+                        guestEmail = rs.getString("email");
                     }
                 }
             }
@@ -207,6 +212,15 @@ public class BookingDBA {
                     pstGuest.setString(3, nid.isEmpty() ? "N/A" : nid);
                     pstGuest.setString(4, contact);
                     pstGuest.executeUpdate();
+                }
+            }
+
+            String catSql = "SELECT rc.category_name FROM Rooms r " +
+                    "INNER JOIN RoomCategories rc ON r.category_id = rc.category_id WHERE r.room_no = ?";
+            try (PreparedStatement pstCat = conn.prepareStatement(catSql)) {
+                pstCat.setString(1, roomNo);
+                try (ResultSet rsCat = pstCat.executeQuery()) {
+                    if (rsCat.next()) resolvedCategoryName = rsCat.getString("category_name");
                 }
             }
 
@@ -236,7 +250,6 @@ public class BookingDBA {
                     pstUpdate.executeUpdate();
                 }
             } else {
-                String newBookingRef = "BKG-" + (System.currentTimeMillis() % 100000);
                 String insertBookingSql = "INSERT INTO Bookings (booking_ref, guest_id, room_no, tier_id, check_in_date, check_out_date, " +
                         "total_nights_days, room_total_amount, booking_status) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'CONFIRMED')";
@@ -260,6 +273,21 @@ public class BookingDBA {
             }
 
             conn.commit();
+
+            if (!isUpdate && guestEmail != null && !guestEmail.trim().isEmpty()) {
+                util.EmailService.sendBookingConfirmationEmail(
+                        guestEmail,
+                        guestName,
+                        newBookingRef,
+                        roomNo,
+                        resolvedCategoryName,
+                        tierName,
+                        inDate,
+                        outDate,
+                        totalAmount
+                );
+            }
+
             return true;
         } catch (SQLException e) {
             try { conn.rollback(); } catch (SQLException ignored) {}
@@ -278,11 +306,19 @@ public class BookingDBA {
             pst.setString(2, bookingRef);
 
             boolean updated = pst.executeUpdate() > 0;
-            if (updated && ("COMPLETED".equals(newStatus) || "CANCELLED".equals(newStatus))) {
-                String releaseRoomSql = "UPDATE Rooms SET status = 'AVAILABLE' WHERE room_no = (SELECT room_no FROM Bookings WHERE booking_ref = ?)";
-                try (PreparedStatement pstRoom = conn.prepareStatement(releaseRoomSql)) {
-                    pstRoom.setString(1, bookingRef);
-                    pstRoom.executeUpdate();
+            if (updated) {
+                if ("COMPLETED".equalsIgnoreCase(newStatus) || "CANCELLED".equalsIgnoreCase(newStatus)) {
+                    String releaseRoomSql = "UPDATE Rooms SET status = 'AVAILABLE' WHERE room_no = (SELECT room_no FROM Bookings WHERE booking_ref = ?)";
+                    try (PreparedStatement pstRoom = conn.prepareStatement(releaseRoomSql)) {
+                        pstRoom.setString(1, bookingRef);
+                        pstRoom.executeUpdate();
+                    }
+                } else if ("CHECKED-IN".equalsIgnoreCase(newStatus) || "CONFIRMED".equalsIgnoreCase(newStatus)) {
+                    String occupyRoomSql = "UPDATE Rooms SET status = 'OCCUPIED' WHERE room_no = (SELECT room_no FROM Bookings WHERE booking_ref = ?)";
+                    try (PreparedStatement pstOccupy = conn.prepareStatement(occupyRoomSql)) {
+                        pstOccupy.setString(1, bookingRef);
+                        pstOccupy.executeUpdate();
+                    }
                 }
             }
             return updated;

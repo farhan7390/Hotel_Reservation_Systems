@@ -47,9 +47,9 @@ public class CustomerDBA {
         public boolean hasActiveStay = false;
     }
 
-    public static boolean createCustomerBooking(String guestId, String roomNo, String tierName, LocalDate inDate, LocalDate outDate) {
+    /*public static boolean createCustomerBooking(String guestId, String roomNo, String tierName, LocalDate inDate, LocalDate outDate) {
         Connection conn = DBConnection.getConnection();
-        if (conn == null || guestId == null || guestId.isEmpty()) return false;
+        if (conn == null || guestId == null || guestId.trim().isEmpty()) return false;
 
         String getTierSql = "SELECT tier_id FROM PricingTiers WHERE tier_name = ? OR tier_name LIKE ?";
         String getCatSql = "SELECT rc.category_name, rc.base_night_rate FROM Rooms r " +
@@ -58,12 +58,20 @@ public class CustomerDBA {
                 "total_nights_days, room_total_amount, booking_status) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'CONFIRMED')";
         String updateRoomSql = "UPDATE Rooms SET status = 'OCCUPIED' WHERE room_no = ?";
+        String getGuestSql = "SELECT full_name, email FROM Guests WHERE guest_id = ?";
+
+        String newBookingRef = "BKG-" + (System.currentTimeMillis() % 100000);
+        String categoryName = "Standard Double";
+        String cleanTier = tierName.split(" \\(")[0].trim();
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        String guestEmail = null;
+        String guestFullName = "Valued Guest";
 
         try {
             conn.setAutoCommit(false);
 
+            // 1. Resolve Tier ID
             int tierId = 1;
-            String cleanTier = tierName.split(" \\(")[0].trim();
             try (PreparedStatement pstTier = conn.prepareStatement(getTierSql)) {
                 pstTier.setString(1, tierName);
                 pstTier.setString(2, cleanTier + "%");
@@ -72,7 +80,7 @@ public class CustomerDBA {
                 }
             }
 
-            String categoryName = "Standard Double";
+            // 2. Resolve Category & Calculate Total Tariff
             try (PreparedStatement pstCat = conn.prepareStatement(getCatSql)) {
                 pstCat.setString(1, roomNo);
                 try (ResultSet rs = pstCat.executeQuery()) {
@@ -83,9 +91,9 @@ public class CustomerDBA {
             long totalUnits = java.time.temporal.ChronoUnit.DAYS.between(inDate, outDate);
             if (totalUnits <= 0) totalUnits = 1;
 
-            BigDecimal totalAmount = BookingDBA.calculateTariff(categoryName, cleanTier, inDate, outDate);
-            String newBookingRef = "BKG-" + (System.currentTimeMillis() % 100000);
+            totalAmount = BookingDBA.calculateTariff(categoryName, cleanTier, inDate, outDate);
 
+            // 3. Insert Booking Record
             try (PreparedStatement pstInsert = conn.prepareStatement(insertBkgSql)) {
                 pstInsert.setString(1, newBookingRef);
                 pstInsert.setString(2, guestId);
@@ -98,13 +106,142 @@ public class CustomerDBA {
                 pstInsert.executeUpdate();
             }
 
+            // 4. Update Room status to OCCUPIED
+            try (PreparedStatement pstRoom = conn.prepareStatement(updateRoomSql)) {
+                pstRoom.setString(1, roomNo);
+                pstRoom.executeUpdate();
+            }
+
+            // 5. Fetch Guest Email for Invoice Transmission
+            String targetEmail = (guestEmail != null && !guestEmail.trim().isEmpty()) ? guestEmail : null;
+            String targetName = (guestFullName != null && !guestFullName.trim().isEmpty()) ? guestFullName : "Valued Guest";
+
+            if (targetEmail == null) {
+                String findEmailSql = "SELECT full_name, email FROM Guests WHERE guest_id = ?";
+                try (PreparedStatement pstG = conn.prepareStatement(findEmailSql)) {
+                    pstG.setString(1, guestId);
+                    try (ResultSet rsG = pstG.executeQuery()) {
+                        if (rsG.next()) {
+                            targetName = rsG.getString("full_name");
+                            targetEmail = rsG.getString("email");
+                        }
+                    }
+                }
+            }
+
+            conn.commit();
+
+            // 6. Dispatch Confirmation Email
+            if (targetEmail != null && !targetEmail.trim().isEmpty() && targetEmail.contains("@")) {
+                System.out.println("Triggering booking confirmation email to: " + targetEmail);
+                util.EmailService.sendBookingConfirmationEmail(
+                        targetEmail,
+                        targetName,
+                        newBookingRef,
+                        roomNo,
+                        categoryName,
+                        cleanTier,
+                        inDate,
+                        outDate,
+                        totalAmount
+                );
+            } else {
+                System.err.println("Booking email skipped: Guest email is missing in session and database.");
+            }
+
+            return true;
+
+        } catch (SQLException e) {
+            try { conn.rollback(); } catch (SQLException ignored) {}
+            e.printStackTrace();
+            return false;
+        } finally {
+            try { conn.setAutoCommit(true); } catch (SQLException ignored) {}
+        }
+    }*/
+
+    public static boolean createCustomerBooking(String guestId, String guestFullName, String guestEmail,
+                                                String roomNo, String tierName, LocalDate inDate, LocalDate outDate) {
+        Connection conn = DBConnection.getConnection();
+        if (conn == null || guestId == null || guestId.trim().isEmpty()) return false;
+
+        String getTierSql = "SELECT tier_id FROM PricingTiers WHERE tier_name = ? OR tier_name LIKE ?";
+        String getCatSql = "SELECT rc.category_name, rc.base_night_rate FROM Rooms r " +
+                "INNER JOIN RoomCategories rc ON r.category_id = rc.category_id WHERE r.room_no = ?";
+        String insertBkgSql = "INSERT INTO Bookings (booking_ref, guest_id, room_no, tier_id, check_in_date, check_out_date, " +
+                "total_nights_days, room_total_amount, booking_status) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'CONFIRMED')";
+        String updateRoomSql = "UPDATE Rooms SET status = 'OCCUPIED' WHERE room_no = ?";
+
+        String newBookingRef = "BKG-" + (System.currentTimeMillis() % 100000);
+        String categoryName = "Standard Room";
+        String cleanTier = tierName.split(" \\(")[0].trim();
+        BigDecimal totalAmount = BigDecimal.ZERO;
+
+        try {
+            conn.setAutoCommit(false);
+
+            // 1. Resolve Tier ID
+            int tierId = 1;
+            try (PreparedStatement pstTier = conn.prepareStatement(getTierSql)) {
+                pstTier.setString(1, tierName);
+                pstTier.setString(2, cleanTier + "%");
+                try (ResultSet rs = pstTier.executeQuery()) {
+                    if (rs.next()) tierId = rs.getInt("tier_id");
+                }
+            }
+
+            // 2. Resolve Category & Calculate Total Tariff
+            try (PreparedStatement pstCat = conn.prepareStatement(getCatSql)) {
+                pstCat.setString(1, roomNo);
+                try (ResultSet rs = pstCat.executeQuery()) {
+                    if (rs.next()) categoryName = rs.getString("category_name");
+                }
+            }
+
+            long totalUnits = java.time.temporal.ChronoUnit.DAYS.between(inDate, outDate);
+            if (totalUnits <= 0) totalUnits = 1;
+
+            totalAmount = BookingDBA.calculateTariff(categoryName, cleanTier, inDate, outDate);
+
+            // 3. Insert Booking Record
+            try (PreparedStatement pstInsert = conn.prepareStatement(insertBkgSql)) {
+                pstInsert.setString(1, newBookingRef);
+                pstInsert.setString(2, guestId);
+                pstInsert.setString(3, roomNo);
+                pstInsert.setInt(4, tierId);
+                pstInsert.setDate(5, java.sql.Date.valueOf(inDate));
+                pstInsert.setDate(6, java.sql.Date.valueOf(outDate));
+                pstInsert.setInt(7, (int) totalUnits);
+                pstInsert.setBigDecimal(8, totalAmount);
+                pstInsert.executeUpdate();
+            }
+
+            // 4. Update Room status to OCCUPIED
             try (PreparedStatement pstRoom = conn.prepareStatement(updateRoomSql)) {
                 pstRoom.setString(1, roomNo);
                 pstRoom.executeUpdate();
             }
 
             conn.commit();
+
+            // 5. Dispatch Confirmation Email
+            if (guestEmail != null && !guestEmail.trim().isEmpty() && guestEmail.contains("@")) {
+                util.EmailService.sendBookingConfirmationEmail(
+                        guestEmail,
+                        guestFullName,
+                        newBookingRef,
+                        roomNo,
+                        categoryName,
+                        cleanTier,
+                        inDate,
+                        outDate,
+                        totalAmount
+                );
+            }
+
             return true;
+
         } catch (SQLException e) {
             try { conn.rollback(); } catch (SQLException ignored) {}
             e.printStackTrace();

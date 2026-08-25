@@ -1,5 +1,7 @@
 package view;
 
+import model.CustomerAdminDBA;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
@@ -10,6 +12,7 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import javax.swing.table.TableRowSorter;
 import java.awt.*;
+import java.util.Vector;
 
 public class CustomerUI extends JPanel {
 
@@ -20,14 +23,16 @@ public class CustomerUI extends JPanel {
     private JTextField txtGuestName, txtNIDPassport, txtPhone, txtEmail, txtCity;
     private JComboBox<String> cmbVipTier, cmbGuestStatus;
     private JTextArea txtSpecialPreferences;
-    private JButton btnSave, btnClear;
+    private JButton btnSave, btnClear, btnRefresh;
 
-    private int selectedRowIndex = -1;
+    private JLabel lblTotalGuests, lblVipMembers, lblInHouseGuests, lblRepeatRate;
+    private String selectedGuestId = null;
 
     public CustomerUI() {
         setLayout(new BorderLayout());
         setBackground(new Color(245, 247, 250));
         add(createCustomerContent(), BorderLayout.CENTER);
+        loadInitialData();
     }
 
     private JPanel createCustomerContent() {
@@ -36,17 +41,29 @@ public class CustomerUI extends JPanel {
         main.setBackground(new Color(245, 247, 250));
         main.setBorder(new EmptyBorder(20, 24, 20, 24));
 
+        // 1. Live KPI Stats Cards Ribbon
         JPanel statsRow = new JPanel(new GridLayout(1, 4, 16, 0));
         statsRow.setOpaque(false);
-        statsRow.setMaximumSize(new Dimension(1400, 120));
+        statsRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
         statsRow.setPreferredSize(new Dimension(1400, 120));
         statsRow.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        statsRow.add(new CustomerStatCard("👥 Total Registered Guests", "1,240 Guests", "Database Records", new Color(99, 102, 241), new Color(129, 140, 248)));
-        statsRow.add(new CustomerStatCard("⭐ VIP Members", "185 Members", "Gold & Platinum Tiers", new Color(168, 85, 247), new Color(192, 132, 252)));
-        statsRow.add(new CustomerStatCard("🏨 In-House Guests", "42 Staying", "Currently Checked-In", new Color(16, 185, 129), new Color(52, 211, 153)));
-        statsRow.add(new CustomerStatCard("🔄 Repeat Rate", "46.2%", "Loyalty Retention", new Color(245, 158, 11), new Color(251, 191, 36)));
+        CustomerStatCard cardTotal = new CustomerStatCard("👥 Total Registered Guests", "0 Guests", "Database Records", new Color(99, 102, 241), new Color(129, 140, 248));
+        CustomerStatCard cardVip = new CustomerStatCard("⭐ VIP Members", "0 Members", "Gold & Platinum Tiers", new Color(168, 85, 247), new Color(192, 132, 252));
+        CustomerStatCard cardInHouse = new CustomerStatCard("🏨 In-House Guests", "0 Staying", "Currently Checked-In", new Color(16, 185, 129), new Color(52, 211, 153));
+        CustomerStatCard cardRepeat = new CustomerStatCard("🔄 Repeat Rate", "0.0%", "Loyalty Retention", new Color(245, 158, 11), new Color(251, 191, 36));
 
+        lblTotalGuests = cardTotal.getCountLabel();
+        lblVipMembers = cardVip.getCountLabel();
+        lblInHouseGuests = cardInHouse.getCountLabel();
+        lblRepeatRate = cardRepeat.getCountLabel();
+
+        statsRow.add(cardTotal);
+        statsRow.add(cardVip);
+        statsRow.add(cardInHouse);
+        statsRow.add(cardRepeat);
+
+        // 2. Workspace: Form Left, Master Directory Table Right
         JPanel workspaceRow = new JPanel(new BorderLayout(18, 0));
         workspaceRow.setOpaque(false);
         workspaceRow.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -97,7 +114,7 @@ public class CustomerUI extends JPanel {
         JPanel cityVipRow = new JPanel(new GridLayout(1, 2, 10, 0));
         cityVipRow.setOpaque(false);
         cityVipRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-        cityVipRow.setMaximumSize(new Dimension(1400, 58));
+        cityVipRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 58));
 
         JPanel cityGroup = new JPanel(new BorderLayout(0, 4));
         cityGroup.setOpaque(false);
@@ -127,7 +144,7 @@ public class CustomerUI extends JPanel {
         JPanel actionBtns = new JPanel(new GridLayout(1, 2, 10, 0));
         actionBtns.setOpaque(false);
         actionBtns.setAlignmentX(Component.LEFT_ALIGNMENT);
-        actionBtns.setMaximumSize(new Dimension(1400, 36));
+        actionBtns.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
 
         btnClear = new JButton("Clear");
         btnClear.setFont(new Font("Century Gothic", Font.BOLD, 11));
@@ -152,6 +169,7 @@ public class CustomerUI extends JPanel {
 
         formCard.add(actionBtns);
 
+        // Right Table Card
         JPanel tableCard = new JPanel(new BorderLayout());
         tableCard.setBackground(Color.WHITE);
         tableCard.setBorder(BorderFactory.createCompoundBorder(
@@ -163,48 +181,61 @@ public class CustomerUI extends JPanel {
         headerRow.setOpaque(false);
         headerRow.setBorder(new EmptyBorder(0, 0, 12, 0));
 
-        JLabel tableTitle = new JLabel("Master Guest Directory & Loyalty Record");
+        JLabel tableTitle = new JLabel("Master Guest Directory & Loyalty Record (Database)");
         tableTitle.setFont(new Font("Century Gothic", Font.BOLD, 15));
         tableTitle.setForeground(new Color(30, 41, 59));
 
+        JPanel tableControls = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        tableControls.setOpaque(false);
+
+        btnRefresh = new JButton("🔄 Refresh");
+        btnRefresh.setFont(new Font("Segoe UI Emoji", Font.BOLD, 11));
+        btnRefresh.setBackground(new Color(241, 245, 249));
+        btnRefresh.setForeground(new Color(51, 65, 85));
+        btnRefresh.setFocusPainted(false);
+        btnRefresh.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnRefresh.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(new Color(226, 232, 240), 1, true),
+                new EmptyBorder(5, 10, 5, 10)
+        ));
+        btnRefresh.addActionListener(e -> {
+            loadInitialData();
+            JOptionPane.showMessageDialog(this, "Guest records refreshed from database!");
+        });
+
         JTextField searchBox = new JTextField();
         searchBox.setFont(new Font("Century Gothic", Font.PLAIN, 12));
-        searchBox.setPreferredSize(new Dimension(200, 28));
+        searchBox.setPreferredSize(new Dimension(180, 28));
         searchBox.setBorder(BorderFactory.createCompoundBorder(
                 new LineBorder(new Color(226, 232, 240), 1, true),
                 new EmptyBorder(4, 8, 4, 8)
         ));
 
         searchBox.getDocument().addDocumentListener(new DocumentListener() {
-            @Override
-            public void insertUpdate(DocumentEvent e) { filterTable(searchBox.getText().trim()); }
-            @Override
-            public void removeUpdate(DocumentEvent e) { filterTable(searchBox.getText().trim()); }
-            @Override
-            public void changedUpdate(DocumentEvent e) { filterTable(searchBox.getText().trim()); }
+            @Override public void insertUpdate(DocumentEvent e) { filterTable(searchBox.getText().trim()); }
+            @Override public void removeUpdate(DocumentEvent e) { filterTable(searchBox.getText().trim()); }
+            @Override public void changedUpdate(DocumentEvent e) { filterTable(searchBox.getText().trim()); }
         });
 
+        tableControls.add(btnRefresh);
+        tableControls.add(searchBox);
+
         headerRow.add(tableTitle, BorderLayout.WEST);
-        headerRow.add(searchBox, BorderLayout.EAST);
+        headerRow.add(tableControls, BorderLayout.EAST);
 
-        String[] cols = {"Guest ID", "Full Name", "Contact / Phone", "NRC / Passport", "VIP Tier", "Total Visits", "Status"};
-        Object[][] data = {
-                {"GST-1001", "Sarah Jenkins", "+95 9 785 221 445", "12/AHLN(N)102931", "PLATINUM VIP", "14 Stays", "CHECKED-IN"},
-                {"GST-1002", "Liam Anderson", "+95 9 450 112 889", "E-Passport (UK)", "GOLD VIP", "8 Stays", "CHECKED-IN"},
-                {"GST-1003", "Marcus Vance", "+95 9 250 889 123", "14/YAKANA(N)054122", "SILVER VIP", "3 Stays", "CHECKED-IN"},
-                {"GST-1004", "Elena Rostova", "+95 9 965 332 110", "E-Passport (RUS)", "STANDARD", "1 Stay", "ACTIVE"},
-                {"GST-1005", "David Kim", "+95 9 421 990 778", "E-Passport (KOR)", "GOLD VIP", "6 Stays", "ACTIVE"},
-                {"GST-1006", "Chloe Bennett", "+95 9 770 123 456", "12/LATHA(N)099120", "STANDARD", "2 Stays", "INACTIVE"}
-        };
-
-        tableModel = new DefaultTableModel(data, cols) {
-            @Override
-            public boolean isCellEditable(int r, int c) { return false; }
+        String[] cols = {"Guest ID", "Full Name", "Contact / Phone", "NRC / Passport", "VIP Tier", "Total Visits", "Status", "Email", "City", "Preferences"};
+        tableModel = new DefaultTableModel(new Object[][]{}, cols) {
+            @Override public boolean isCellEditable(int r, int c) { return false; }
         };
 
         customerTable = new JTable(tableModel);
         rowSorter = new TableRowSorter<>(tableModel);
         customerTable.setRowSorter(rowSorter);
+
+        // Hide extra metadata columns from visual table
+        customerTable.removeColumn(customerTable.getColumnModel().getColumn(9));
+        customerTable.removeColumn(customerTable.getColumnModel().getColumn(8));
+        customerTable.removeColumn(customerTable.getColumnModel().getColumn(7));
 
         customerTable.setRowHeight(38);
         customerTable.setFont(new Font("Century Gothic", Font.PLAIN, 13));
@@ -246,6 +277,20 @@ public class CustomerUI extends JPanel {
         return main;
     }
 
+    public void loadInitialData() {
+        tableModel.setRowCount(0);
+        Vector<Vector<Object>> guests = CustomerAdminDBA.getAllGuests();
+        for (Vector<Object> row : guests) {
+            tableModel.addRow(row);
+        }
+
+        CustomerAdminDBA.CustomerKPIs kpis = CustomerAdminDBA.getCustomerMetrics();
+        lblTotalGuests.setText(kpis.totalGuests);
+        lblVipMembers.setText(kpis.vipMembers);
+        lblInHouseGuests.setText(kpis.inHouseGuests);
+        lblRepeatRate.setText(kpis.repeatRate);
+    }
+
     private void filterTable(String query) {
         if (query.isEmpty()) {
             rowSorter.setRowFilter(null);
@@ -255,12 +300,16 @@ public class CustomerUI extends JPanel {
     }
 
     private void populateFormFromSelectedRow(int modelRow) {
-        selectedRowIndex = modelRow;
+        selectedGuestId = (String) tableModel.getValueAt(modelRow, 0);
         txtGuestName.setText((String) tableModel.getValueAt(modelRow, 1));
         txtPhone.setText((String) tableModel.getValueAt(modelRow, 2));
         txtNIDPassport.setText((String) tableModel.getValueAt(modelRow, 3));
         cmbVipTier.setSelectedItem(tableModel.getValueAt(modelRow, 4));
         cmbGuestStatus.setSelectedItem(tableModel.getValueAt(modelRow, 6));
+
+        txtEmail.setText((String) tableModel.getValueAt(modelRow, 7));
+        txtCity.setText((String) tableModel.getValueAt(modelRow, 8));
+        txtSpecialPreferences.setText((String) tableModel.getValueAt(modelRow, 9));
 
         btnSave.setText("Update Profile");
         btnSave.setBackground(new Color(16, 185, 129));
@@ -270,7 +319,7 @@ public class CustomerUI extends JPanel {
         JPanel group = new JPanel(new BorderLayout(0, 4));
         group.setOpaque(false);
         group.setAlignmentX(Component.LEFT_ALIGNMENT);
-        group.setMaximumSize(new Dimension(1400, 58));
+        group.setMaximumSize(new Dimension(Integer.MAX_VALUE, 58));
 
         JLabel lbl = new JLabel(labelText);
         lbl.setFont(new Font("Century Gothic", Font.BOLD, 11));
@@ -299,7 +348,7 @@ public class CustomerUI extends JPanel {
     private void styleComboBox(JComboBox<?> box) {
         box.setFont(new Font("Century Gothic", Font.PLAIN, 12));
         box.setBackground(Color.WHITE);
-        box.setMaximumSize(new Dimension(1400, 30));
+        box.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
     }
 
     private void clearForm() {
@@ -311,7 +360,7 @@ public class CustomerUI extends JPanel {
         txtSpecialPreferences.setText("");
         cmbVipTier.setSelectedIndex(0);
         cmbGuestStatus.setSelectedIndex(0);
-        selectedRowIndex = -1;
+        selectedGuestId = null;
 
         btnSave.setText("Save Customer");
         btnSave.setBackground(new Color(99, 102, 241));
@@ -322,32 +371,32 @@ public class CustomerUI extends JPanel {
         String name = txtGuestName.getText().trim();
         String nid = txtNIDPassport.getText().trim();
         String phone = txtPhone.getText().trim();
+        String email = txtEmail.getText().trim();
+        String city = txtCity.getText().trim();
         String tier = (String) cmbVipTier.getSelectedItem();
         String status = (String) cmbGuestStatus.getSelectedItem();
+        String prefs = txtSpecialPreferences.getText().trim();
 
         if (name.isEmpty() || phone.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Please enter Guest Name and Phone Number.", "Validation Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        if (selectedRowIndex != -1) {
-            tableModel.setValueAt(name, selectedRowIndex, 1);
-            tableModel.setValueAt(phone, selectedRowIndex, 2);
-            tableModel.setValueAt(nid, selectedRowIndex, 3);
-            tableModel.setValueAt(tier, selectedRowIndex, 4);
-            tableModel.setValueAt(status, selectedRowIndex, 6);
-            JOptionPane.showMessageDialog(this, "Guest profile updated successfully!");
-        } else {
-            String newId = "GST-" + (1000 + tableModel.getRowCount() + 1);
-            tableModel.addRow(new Object[]{newId, name, phone, nid, tier, "1 Stay", status});
-            JOptionPane.showMessageDialog(this, "Guest profile for " + name + " saved successfully!");
-        }
+        boolean isUpdate = (selectedGuestId != null);
+        boolean success = CustomerAdminDBA.saveOrUpdateGuest(selectedGuestId, name, nid, phone, email, city, tier, status, prefs, isUpdate);
 
-        clearForm();
+        if (success) {
+            JOptionPane.showMessageDialog(this, isUpdate ? "Guest profile updated successfully!" : "Guest profile for " + name + " saved to database!");
+            loadInitialData();
+            clearForm();
+        } else {
+            JOptionPane.showMessageDialog(this, "Failed to save guest record in database.", "Database Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     static class CustomerStatCard extends JPanel {
         private final Color c1, c2;
+        private final JLabel lblCount;
 
         public CustomerStatCard(String title, String count, String subtext, Color c1, Color c2) {
             this.c1 = c1;
@@ -363,7 +412,7 @@ public class CustomerUI extends JPanel {
             lblTitle.setFont(new Font("Segoe UI Emoji", Font.BOLD, 12));
             lblTitle.setForeground(new Color(255, 255, 255, 230));
 
-            JLabel lblCount = new JLabel(count);
+            lblCount = new JLabel(count);
             lblCount.setFont(new Font("Century Gothic", Font.BOLD, 20));
             lblCount.setForeground(Color.WHITE);
 
@@ -378,6 +427,10 @@ public class CustomerUI extends JPanel {
             textPanel.add(lblSub);
 
             add(textPanel, BorderLayout.CENTER);
+        }
+
+        public JLabel getCountLabel() {
+            return lblCount;
         }
 
         @Override

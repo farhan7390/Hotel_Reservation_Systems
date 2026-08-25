@@ -31,7 +31,9 @@ public class BookingUI extends JPanel {
     private String selectedBookingRef = null;
     private String currentSelectedRoom = null;
     private BigDecimal currentCalculatedAmount = BigDecimal.ZERO;
-    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+    private static final DateTimeFormatter INPUT_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final DateTimeFormatter DB_DISPLAY_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     public BookingUI() {
         setLayout(new BorderLayout());
@@ -77,14 +79,16 @@ public class BookingUI extends JPanel {
         styleComboBox(cmbRoomNo);
 
         txtCheckIn = createStyledTextField();
-        txtCheckIn.setText(LocalDate.now().format(FORMATTER));
+        txtCheckIn.setText(LocalDate.now().format(INPUT_FORMATTER));
 
         txtCheckOut = createStyledTextField();
-        txtCheckOut.setText(LocalDate.now().plusDays(1).format(FORMATTER));
+        txtCheckOut.setText(LocalDate.now().plusDays(1).format(INPUT_FORMATTER));
 
         txtTotalAmount = createStyledTextField();
         txtTotalAmount.setEditable(false);
         txtTotalAmount.setBackground(new Color(248, 250, 252));
+        txtTotalAmount.setFont(new Font("Century Gothic", Font.BOLD, 12));
+        txtTotalAmount.setForeground(new Color(99, 102, 241));
         txtTotalAmount.setText("0 MMK");
 
         cmbBookingTier.addActionListener(e -> calculateEstimatedPrice());
@@ -135,7 +139,7 @@ public class BookingUI extends JPanel {
         formCard.add(datesRow);
         formCard.add(Box.createRigidArea(new Dimension(0, 10)));
 
-        addFormGroup(formCard, "Total Calculated Amount", txtTotalAmount);
+        addFormGroup(formCard, "Total Calculated Tariff", txtTotalAmount);
 
         JPanel actionBtnRow = new JPanel(new GridLayout(1, 2, 10, 0));
         actionBtnRow.setOpaque(false);
@@ -265,8 +269,6 @@ public class BookingUI extends JPanel {
         bookingTable.getColumnModel().getColumn(7).setCellRenderer(new BookingStatusRenderer());
 
         JScrollPane scrollPane = new JScrollPane(bookingTable);
-        scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
         scrollPane.setBorder(null);
         scrollPane.getViewport().setBackground(Color.WHITE);
 
@@ -325,8 +327,8 @@ public class BookingUI extends JPanel {
         if (tier == null || cat == null) return;
 
         try {
-            LocalDate in = LocalDate.parse(txtCheckIn.getText().trim(), FORMATTER);
-            LocalDate out = LocalDate.parse(txtCheckOut.getText().trim(), FORMATTER);
+            LocalDate in = LocalDate.parse(txtCheckIn.getText().trim(), INPUT_FORMATTER);
+            LocalDate out = LocalDate.parse(txtCheckOut.getText().trim(), INPUT_FORMATTER);
             currentCalculatedAmount = BookingDBA.calculateTariff(cat, tier, in, out);
             txtTotalAmount.setText(String.format("%,d MMK", currentCalculatedAmount.longValue()));
         } catch (Exception ignored) {
@@ -347,13 +349,22 @@ public class BookingUI extends JPanel {
             }
         }
 
-        txtTotalAmount.setText((String) tableModel.getValueAt(modelRow, 6));
+        // Format dates from table (dd/MM/yyyy) to form fields (yyyy-MM-dd)
+        try {
+            String checkInStr = (String) tableModel.getValueAt(modelRow, 4);
+            String checkOutStr = (String) tableModel.getValueAt(modelRow, 5);
+            txtCheckIn.setText(LocalDate.parse(checkInStr, DB_DISPLAY_FORMATTER).format(INPUT_FORMATTER));
+            txtCheckOut.setText(LocalDate.parse(checkOutStr, DB_DISPLAY_FORMATTER).format(INPUT_FORMATTER));
+        } catch (Exception ignored) {}
+
         txtContact.setText((String) tableModel.getValueAt(modelRow, 8));
         txtNID.setText((String) tableModel.getValueAt(modelRow, 9));
 
         String category = (String) tableModel.getValueAt(modelRow, 10);
         cmbRoomType.setSelectedItem(category);
         updateAvailableRooms();
+
+        calculateEstimatedPrice();
 
         btnConfirm.setText("Save Changes");
         btnConfirm.setBackground(new Color(16, 185, 129));
@@ -476,8 +487,11 @@ public class BookingUI extends JPanel {
         txtGuestName.setText("");
         txtContact.setText("");
         txtNID.setText("");
+        txtCheckIn.setText(LocalDate.now().format(INPUT_FORMATTER));
+        txtCheckOut.setText(LocalDate.now().plusDays(1).format(INPUT_FORMATTER));
         selectedBookingRef = null;
         currentSelectedRoom = null;
+
         if (cmbBookingTier.getItemCount() > 0) cmbBookingTier.setSelectedIndex(0);
         if (cmbRoomType.getItemCount() > 0) cmbRoomType.setSelectedIndex(0);
 
@@ -501,8 +515,8 @@ public class BookingUI extends JPanel {
         }
 
         try {
-            LocalDate inDate = LocalDate.parse(txtCheckIn.getText().trim(), FORMATTER);
-            LocalDate outDate = LocalDate.parse(txtCheckOut.getText().trim(), FORMATTER);
+            LocalDate inDate = LocalDate.parse(txtCheckIn.getText().trim(), INPUT_FORMATTER);
+            LocalDate outDate = LocalDate.parse(txtCheckOut.getText().trim(), INPUT_FORMATTER);
 
             boolean isUpdate = (selectedBookingRef != null);
             boolean success = BookingDBA.saveOrUpdateBooking(selectedBookingRef, name, contact, nid, room, tier, inDate, outDate, currentCalculatedAmount, isUpdate);

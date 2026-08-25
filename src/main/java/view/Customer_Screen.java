@@ -227,7 +227,7 @@ public class Customer_Screen extends JFrame {
     }
 
     private JPanel createExploreAndBookPanel() {
-        JPanel panel = new JPanel(new BorderLayout(0,14));
+        JPanel panel = new JPanel(new BorderLayout(0, 14));
         panel.setBackground(new Color(245, 247, 250));
         panel.setBorder(new EmptyBorder(18, 20, 18, 20));
 
@@ -250,9 +250,42 @@ public class Customer_Screen extends JFrame {
         headerPanel.add(titleBox, BorderLayout.WEST);
         panel.add(headerPanel, BorderLayout.NORTH);
 
+        List<CustomerDBA.RoomCardData> rooms = CustomerDBA.getAvailableRoomCards();
+        int cols = 3;
+        int rows = Math.max(1, (int) Math.ceil(rooms.size() / 3.0));
 
+        JPanel gridPanel = new JPanel(new GridLayout(rows, cols, 14, 14));
+        gridPanel.setOpaque(false);
 
+        for (CustomerDBA.RoomCardData r : rooms) {
+            gridPanel.add(createRoomCard(
+                    r.roomNo, r.title, r.floor, r.price, r.tierBadge, r.features, new Color(99, 102, 241), r.imagePaths
+            ));
+        }
 
+        int remainder = rooms.size() % 3;
+        if (remainder != 0) {
+            int emptySlots = 3 - remainder;
+            for (int i = 0; i < emptySlots; i++) {
+                JPanel placeholder = new JPanel();
+                placeholder.setOpaque(false);
+                gridPanel.add(placeholder);
+            }
+        }
+
+        JPanel wrapperPanel = new JPanel(new BorderLayout());
+        wrapperPanel.setOpaque(false);
+        wrapperPanel.add(gridPanel, BorderLayout.NORTH);
+
+        JScrollPane scrollPane = new JScrollPane(wrapperPanel);
+        scrollPane.setBorder(null);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+        scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(18);
+
+        panel.add(scrollPane, BorderLayout.CENTER);
         return panel;
     }
 
@@ -260,25 +293,25 @@ public class Customer_Screen extends JFrame {
         JPanel card = new JPanel();
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         card.setBackground(Color.WHITE);
-        card.setPreferredSize(new Dimension(320, 275));
+        card.setPreferredSize(new Dimension(280, 275));
         card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 275));
         card.setBorder(BorderFactory.createCompoundBorder(
                 new LineBorder(new Color(226, 232, 240), 1, true),
-                new EmptyBorder(12, 14, 12, 14)
+                new EmptyBorder(10, 12, 10, 12)
         ));
 
         RoomImageCarousel carousel = new RoomImageCarousel(imagePaths, roomNo + " (" + title + ")");
-        carousel.setPreferredSize(new Dimension(300, 115));
+        carousel.setPreferredSize(new Dimension(260, 115));
         carousel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 115));
         carousel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JPanel topRow = new JPanel(new BorderLayout());
+        JPanel topRow = new JPanel(new BorderLayout(4, 0));
         topRow.setOpaque(false);
-        topRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
+        topRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 22));
         topRow.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel lblRoom = new JLabel(roomNo + " • " + title);
-        lblRoom.setFont(new Font("Segoe UI Emoji", Font.BOLD, 13));
+        lblRoom.setFont(new Font("Segoe UI Emoji", Font.BOLD, 12));
         lblRoom.setForeground(new Color(30, 41, 59));
 
         JLabel lblBadge = new JLabel(tierBadge) {
@@ -286,57 +319,57 @@ public class Customer_Screen extends JFrame {
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(accentColor.getRed(), accentColor.getGreen(), accentColor.getBlue(), 35));
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 6, 6);
+                g2.setColor(new Color(accentColor.getRed(), accentColor.getGreen(), accentColor.getBlue(), 30));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 5, 5);
                 g2.dispose();
                 super.paintComponent(g);
             }
         };
-        lblBadge.setFont(new Font("Segoe UI Emoji", Font.BOLD, 10));
+        lblBadge.setFont(new Font("Segoe UI Emoji", Font.BOLD, 9));
         lblBadge.setForeground(accentColor);
-        lblBadge.setBorder(new EmptyBorder(2, 6, 2, 6));
+        lblBadge.setBorder(new EmptyBorder(2, 5, 2, 5));
 
         topRow.add(lblRoom, BorderLayout.WEST);
         topRow.add(lblBadge, BorderLayout.EAST);
 
         JLabel lblFloor = new JLabel(floor);
-        lblFloor.setFont(new Font("Century Gothic", Font.PLAIN, 11));
+        lblFloor.setFont(new Font("Century Gothic", Font.PLAIN, 10));
         lblFloor.setForeground(new Color(148, 163, 184));
         lblFloor.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel lblFeatures = new JLabel("<html><font color='#64748b'>Amenities: </font>" + features + "</html>");
-        lblFeatures.setFont(new Font("Century Gothic", Font.PLAIN, 11));
+        lblFeatures.setFont(new Font("Century Gothic", Font.PLAIN, 10));
         lblFeatures.setForeground(new Color(51, 65, 85));
         lblFeatures.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JPanel bottomRow = new JPanel(new BorderLayout());
+        JPanel bottomRow = new JPanel(new BorderLayout(6, 0));
         bottomRow.setOpaque(false);
-        bottomRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
+        bottomRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
         bottomRow.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel lblPrice = new JLabel(price);
-        lblPrice.setFont(new Font("Century Gothic", Font.BOLD, 13));
+        lblPrice.setFont(new Font("Century Gothic", Font.BOLD, 12));
         lblPrice.setForeground(new Color(15, 23, 42));
 
         JButton btnBook = new JButton("Book This Room");
-        btnBook.setFont(new Font("Century Gothic", Font.BOLD, 11));
+        btnBook.setFont(new Font("Century Gothic", Font.BOLD, 10));
         btnBook.setBackground(new Color(99, 102, 241));
         btnBook.setForeground(Color.WHITE);
         btnBook.setFocusPainted(false);
         btnBook.setBorderPainted(false);
         btnBook.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnBook.setPreferredSize(new Dimension(135, 30));
+        btnBook.setPreferredSize(new Dimension(120, 28));
         btnBook.addActionListener(e -> openBookingModal(roomNo, title, price));
 
         bottomRow.add(lblPrice, BorderLayout.WEST);
         bottomRow.add(btnBook, BorderLayout.EAST);
 
         card.add(carousel);
-        card.add(Box.createRigidArea(new Dimension(0, 8)));
+        card.add(Box.createRigidArea(new Dimension(0, 6)));
         card.add(topRow);
         card.add(Box.createRigidArea(new Dimension(0, 2)));
         card.add(lblFloor);
-        card.add(Box.createRigidArea(new Dimension(0, 4)));
+        card.add(Box.createRigidArea(new Dimension(0, 3)));
         card.add(lblFeatures);
         card.add(Box.createVerticalGlue());
         card.add(bottomRow);
@@ -430,7 +463,7 @@ public class Customer_Screen extends JFrame {
         btnConfirm.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnConfirm.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        btnConfirm.addActionListener(e -> {
+        /*btnConfirm.addActionListener(e -> {
             try {
                 LocalDate inDate = LocalDate.parse(txtCheckIn.getText().trim());
                 LocalDate outDate = LocalDate.parse(txtCheckOut.getText().trim());
@@ -440,6 +473,36 @@ public class Customer_Screen extends JFrame {
                 if (success) {
                     dialog.dispose();
                     JOptionPane.showMessageDialog(this, "Success! Reservation confirmed for " + roomNo + " (" + roomTitle + ").", "Booking Confirmed", JOptionPane.INFORMATION_MESSAGE);
+                    refreshCustomerSession();
+                    refreshMyReservationsTable();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Failed to submit booking into the database.", "Booking Error", JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Invalid Date Format. Please use YYYY-MM-DD.", "Date Error", JOptionPane.WARNING_MESSAGE);
+            }
+        });*/
+
+        btnConfirm.addActionListener(e -> {
+            try {
+                LocalDate inDate = LocalDate.parse(txtCheckIn.getText().trim());
+                LocalDate outDate = LocalDate.parse(txtCheckOut.getText().trim());
+                String tier = (String) cmbTier.getSelectedItem();
+
+                // Pass currentGuest.fullName and currentGuest.email directly
+                boolean success = CustomerDBA.createCustomerBooking(
+                        currentGuest.guestId,
+                        currentGuest.fullName,
+                        currentGuest.email,
+                        roomNo,
+                        tier,
+                        inDate,
+                        outDate
+                );
+
+                if (success) {
+                    dialog.dispose();
+                    JOptionPane.showMessageDialog(this, "Success! Reservation confirmed for " + roomNo + " (" + roomTitle + ").\nConfirmation email has been sent to " + currentGuest.email, "Booking Confirmed", JOptionPane.INFORMATION_MESSAGE);
                     refreshCustomerSession();
                     refreshMyReservationsTable();
                 } else {
@@ -1139,7 +1202,6 @@ public class Customer_Screen extends JFrame {
         private final String[] paths;
         private final String fallbackText;
         private int currentIndex = 0;
-        private final JLabel lblCounter;
 
         public RoomImageCarousel(String[] paths, String fallbackText) {
             this.paths = paths;
@@ -1147,60 +1209,6 @@ public class Customer_Screen extends JFrame {
             setLayout(new BorderLayout());
             setPreferredSize(new Dimension(1400, 115));
             setOpaque(false);
-
-            JPanel navOverlay = new JPanel(new BorderLayout());
-            navOverlay.setOpaque(false);
-            navOverlay.setBorder(new EmptyBorder(6, 8, 6, 8));
-
-            JButton btnPrev = createArrowButton("◀");
-            JButton btnNext = createArrowButton("▶");
-
-            lblCounter = new JLabel("1/" + paths.length, SwingConstants.CENTER);
-            lblCounter.setFont(new Font("Century Gothic", Font.BOLD, 10));
-            lblCounter.setForeground(Color.WHITE);
-            lblCounter.setOpaque(true);
-            lblCounter.setBackground(new Color(15, 23, 42, 160));
-            lblCounter.setBorder(new EmptyBorder(2, 6, 2, 6));
-
-            btnPrev.addActionListener(e -> {
-                if (currentIndex > 0) {
-                    currentIndex--;
-                } else {
-                    currentIndex = paths.length - 1;
-                }
-                lblCounter.setText((currentIndex + 1) + "/" + paths.length);
-                repaint();
-            });
-
-            btnNext.addActionListener(e -> {
-                if (currentIndex < paths.length - 1) {
-                    currentIndex++;
-                } else {
-                    currentIndex = 0;
-                }
-                lblCounter.setText((currentIndex + 1) + "/" + paths.length);
-                repaint();
-            });
-
-            navOverlay.add(btnPrev, BorderLayout.WEST);
-            navOverlay.add(lblCounter, BorderLayout.CENTER);
-            navOverlay.add(btnNext, BorderLayout.EAST);
-
-            add(navOverlay, BorderLayout.NORTH);
-        }
-
-        private JButton createArrowButton(String text) {
-            JButton btn = new JButton(text);
-            btn.setFont(new Font("Segoe UI Emoji", Font.BOLD, 10));
-            btn.setForeground(Color.WHITE);
-            btn.setBackground(new Color(15, 23, 42, 170));
-            btn.setPreferredSize(new Dimension(28, 22));
-            btn.setFocusPainted(false);
-            btn.setBorderPainted(false);
-            btn.setContentAreaFilled(false);
-            btn.setOpaque(true);
-            btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-            return btn;
         }
 
         @Override
@@ -1218,15 +1226,17 @@ public class Customer_Screen extends JFrame {
                 String path = paths[currentIndex];
                 if (path != null && !path.trim().isEmpty()) {
                     try {
-                        // 1. Check if it's a real file path on the local disk
-                        java.io.File file = new java.io.File(path);
-                        if (file.exists() && file.isFile()) {
-                            currentImg = new ImageIcon(file.getAbsolutePath()).getImage();
+                        if (path.startsWith("http://") || path.startsWith("https://")) {
+                            currentImg = new ImageIcon(new java.net.URI(path).toURL()).getImage();
                         } else {
-                            // 2. Fallback to classpath resource
-                            URL url = getClass().getResource(path);
-                            if (url != null) {
-                                currentImg = new ImageIcon(url).getImage();
+                            java.io.File file = new java.io.File(path);
+                            if (file.exists() && file.isFile()) {
+                                currentImg = new ImageIcon(file.getAbsolutePath()).getImage();
+                            } else {
+                                URL url = getClass().getResource(path);
+                                if (url != null) {
+                                    currentImg = new ImageIcon(url).getImage();
+                                }
                             }
                         }
                     } catch (Exception ignored) {}
@@ -1237,7 +1247,20 @@ public class Customer_Screen extends JFrame {
             g2.setClip(clipShape);
 
             if (currentImg != null) {
-                g2.drawImage(currentImg, 0, 0, w, h, this);
+                int imgW = currentImg.getWidth(null);
+                int imgH = currentImg.getHeight(null);
+
+                if (imgW > 0 && imgH > 0) {
+                    double scale = Math.max((double) w / imgW, (double) h / imgH);
+                    int drawW = (int) Math.round(imgW * scale);
+                    int drawH = (int) Math.round(imgH * scale);
+                    int drawX = (w - drawW) / 2;
+                    int drawY = (h - drawH) / 2;
+
+                    g2.drawImage(currentImg, drawX, drawY, drawW, drawH, this);
+                } else {
+                    g2.drawImage(currentImg, 0, 0, w, h, this);
+                }
             } else {
                 GradientPaint gp = new GradientPaint(0, 0, new Color(71, 85, 105), w, h, new Color(30, 41, 59));
                 g2.setPaint(gp);
@@ -1383,5 +1406,4 @@ public class Customer_Screen extends JFrame {
         ));
         return tf;
     }
-
 }

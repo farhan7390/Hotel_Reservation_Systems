@@ -47,6 +47,7 @@ public class MainAdminFrame extends JFrame {
         if (hasAccess("CATEGORY_MANAGEMENT")) {
             contentCardsPanel.add(new CategoryManagementUI(), "CATEGORY_MANAGEMENT");
         }
+        if (hasAccess("CUSTOMER_MANAGEMENT")) contentCardsPanel.add(new CustomerUI(), "CUSTOMER_MANAGEMENT");
         if (hasAccess("SERVICE_MANAGEMENT")) contentCardsPanel.add(new ServiceManagementUI(), "SERVICE_MANAGEMENT");
         if (hasAccess("ROOMS_MANAGEMENT")) contentCardsPanel.add(new RoomManagementUI(), "ROOMS_MANAGEMENT");
         if (hasAccess("RATES_PRICING")) contentCardsPanel.add(new RateAndPricingUI(), "RATES_PRICING");
@@ -119,6 +120,7 @@ public class MainAdminFrame extends JFrame {
                 {"📈  Reports", "REPORTS"},
                 {"🚪  Rooms Management", "ROOMS_MANAGEMENT"},
                 {"🛎️  Service Catalog", "SERVICE_MANAGEMENT"},
+                {"👥  Guest Management", "CUSTOMER_MANAGEMENT"},
                 {"🗂️  Category & Tiers", "CATEGORY_MANAGEMENT"},
                 {"🏷️  Rates & Pricing", "RATES_PRICING"},
                 {"👥  User Management", "USER_MANAGEMENT"}
