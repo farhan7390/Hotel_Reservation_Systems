@@ -254,12 +254,4 @@ public class Customer_UI extends JFrame {
         ));
         return pf;
     }
-
-    public static void main(String[] args) {
-        try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception ignored) {}
-
-        SwingUtilities.invokeLater(() -> new Customer_UI().setVisible(true));
-    }
 }
