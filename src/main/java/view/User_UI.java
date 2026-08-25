@@ -256,7 +256,7 @@ public class User_UI extends JFrame {
         return (userRole != null && !userRole.trim().isEmpty()) ? userRole.toUpperCase() : "STAFF";
     }
 
-    public static void main(String[] args) {
+    static void main(String[] args) {
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         } catch (Exception ignored) {}
