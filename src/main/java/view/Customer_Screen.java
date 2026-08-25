@@ -227,9 +227,9 @@ public class Customer_Screen extends JFrame {
     }
 
     private JPanel createExploreAndBookPanel() {
-        JPanel panel = new JPanel(new BorderLayout(0, 14));
+        JPanel panel = new JPanel(new BorderLayout(0,14));
         panel.setBackground(new Color(245, 247, 250));
-        panel.setBorder(new EmptyBorder(20, 24, 20, 24));
+        panel.setBorder(new EmptyBorder(18, 20, 18, 20));
 
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setOpaque(false);
@@ -238,43 +238,20 @@ public class Customer_Screen extends JFrame {
         sectionTitle.setFont(new Font("Century Gothic", Font.BOLD, 16));
         sectionTitle.setForeground(new Color(30, 41, 59));
 
-        JLabel subtitle = new JLabel("Live real-time rooms ready for assignment in our database");
-        subtitle.setFont(new Font("Century Gothic", Font.PLAIN, 12));
-        subtitle.setForeground(new Color(100, 116, 139));
+        JLabel subTitle = new JLabel("Search Available Rooms and Book");
+        subTitle.setFont(new Font("Century Gothic", Font.PLAIN, 12));
+        subTitle.setForeground(new Color(100, 116, 139));
 
         JPanel titleBox = new JPanel(new GridLayout(2, 1, 0, 2));
         titleBox.setOpaque(false);
         titleBox.add(sectionTitle);
-        titleBox.add(subtitle);
+        titleBox.add(subTitle);
 
         headerPanel.add(titleBox, BorderLayout.WEST);
         panel.add(headerPanel, BorderLayout.NORTH);
 
-        List<CustomerDBA.RoomCardData> rooms = CustomerDBA.getAvailableRoomCards();
-        int rows = Math.max(1, (int) Math.ceil(rooms.size() / 2.0));
 
-        JPanel gridPanel = new JPanel(new GridLayout(rows, 2, 18, 18));
-        gridPanel.setOpaque(false);
 
-        for (CustomerDBA.RoomCardData r : rooms) {
-            gridPanel.add(createRoomCard(
-                    r.roomNo, r.title, r.floor, r.price, r.tierBadge, r.features, new Color(99, 102, 241), r.imagePaths
-            ));
-        }
-
-        JPanel wrapperPanel = new JPanel(new BorderLayout());
-        wrapperPanel.setOpaque(false);
-        wrapperPanel.add(gridPanel, BorderLayout.NORTH);
-
-        JScrollPane scrollPane = new JScrollPane(wrapperPanel);
-        scrollPane.setBorder(null);
-        scrollPane.setOpaque(false);
-        scrollPane.getViewport().setOpaque(false);
-        scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
-        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
-
-        panel.add(scrollPane, BorderLayout.CENTER);
 
         return panel;
     }
