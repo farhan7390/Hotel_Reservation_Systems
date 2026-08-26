@@ -254,34 +254,31 @@ public class CustomerDBA {
     public static GuestProfile getGuestProfile(String userIdentifier) {
         GuestProfile profile = new GuestProfile();
         Connection conn = DBConnection.getConnection();
-        if (conn == null) return profile;
+        if (conn == null || userIdentifier == null || userIdentifier.trim().isEmpty()) return profile;
 
-        String query = "SELECT g.guest_id, g.user_id, g.full_name, g.nid_passport, g.phone, " +
+        String query = "SELECT g.guest_id, g.full_name, g.nid_passport, g.phone, " +
                 "g.email, g.city, g.vip_tier, g.loyalty_points, g.guest_status, g.preferences_notes, " +
                 "b.room_no AS active_room, b.booking_ref AS active_bkg " +
                 "FROM Guests g " +
-                "LEFT JOIN Users u ON g.user_id = u.user_id " +
                 "LEFT JOIN Bookings b ON g.guest_id = b.guest_id AND b.booking_status IN ('CHECKED-IN', 'CONFIRMED') " +
-                "WHERE g.email = ? OR g.phone = ? OR u.username = ? " +
+                "WHERE g.email = ? OR g.phone = ? " +
                 "ORDER BY b.created_at DESC";
 
         try (PreparedStatement pst = conn.prepareStatement(query)) {
-            pst.setString(1, userIdentifier);
-            pst.setString(2, userIdentifier);
-            pst.setString(3, userIdentifier);
+            pst.setString(1, userIdentifier.trim());
+            pst.setString(2, userIdentifier.trim());
 
             try (ResultSet rs = pst.executeQuery()) {
                 if (rs.next()) {
                     profile.guestId = rs.getString("guest_id");
-                    profile.userId = rs.getString("user_id");
-                    profile.fullName = rs.getString("full_name");
-                    profile.nidPassport = rs.getString("nid_passport");
-                    profile.phone = rs.getString("phone");
+                    profile.fullName = rs.getString("full_name") != null ? rs.getString("full_name") : "Valued Guest";
+                    profile.nidPassport = rs.getString("nid_passport") != null ? rs.getString("nid_passport") : "";
+                    profile.phone = rs.getString("phone") != null ? rs.getString("phone") : "";
                     profile.email = rs.getString("email") != null ? rs.getString("email") : "";
                     profile.city = rs.getString("city") != null ? rs.getString("city") : "Yangon";
-                    profile.vipTier = rs.getString("vip_tier");
+                    profile.vipTier = rs.getString("vip_tier") != null ? rs.getString("vip_tier") : "STANDARD";
                     profile.loyaltyPoints = rs.getInt("loyalty_points");
-                    profile.guestStatus = rs.getString("guest_status");
+                    profile.guestStatus = rs.getString("guest_status") != null ? rs.getString("guest_status") : "ACTIVE";
                     profile.preferences = rs.getString("preferences_notes") != null ? rs.getString("preferences_notes") : "";
                     profile.activeRoomNo = rs.getString("active_room") != null ? rs.getString("active_room") : "None";
                     profile.activeBookingRef = rs.getString("active_bkg") != null ? rs.getString("active_bkg") : "";

@@ -36,20 +36,17 @@ public class UserDAO {
 
     public static boolean validateCustomer(String identifier, String password) {
         Connection conn = DBConnection.getConnection();
-        if (conn == null) return false;
+        if (conn == null || identifier == null || password == null) return false;
 
         String query = "SELECT g.guest_id FROM Guests g " +
-                "LEFT JOIN Users u ON g.user_id = u.user_id " +
-                "WHERE (g.email = ? OR g.phone = ? OR u.username = ?) " +
-                "AND (u.password_hash = ? OR ? = 'customer12') " +
+                "WHERE (g.email = ? OR g.phone = ?) " +
+                "AND g.password_hash = ? " +
                 "AND g.guest_status != 'INACTIVE'";
 
         try (PreparedStatement pst = conn.prepareStatement(query)) {
-            pst.setString(1, identifier);
-            pst.setString(2, identifier);
-            pst.setString(3, identifier);
-            pst.setString(4, password);
-            pst.setString(5, password);
+            pst.setString(1, identifier.trim());
+            pst.setString(2, identifier.trim());
+            pst.setString(3, password.trim());
 
             try (ResultSet rs = pst.executeQuery()) {
                 return rs.next();

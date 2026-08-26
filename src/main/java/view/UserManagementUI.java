@@ -24,7 +24,7 @@ public class UserManagementUI extends JPanel {
     private JTextField txtFullName, txtUsername, txtEmail, txtPhone;
     private JPasswordField txtPassword;
     private JComboBox<String> cmbRole, cmbStatus;
-    private JButton btnSave, btnClear;
+    private JButton btnSave, btnClear, btnDeleteForm, btnDeleteTable;
 
     private JLabel lblTotalStaff, lblAdminCount, lblActiveCount, lblRestrictedCount;
     private String selectedUserId = null;
@@ -135,7 +135,7 @@ public class UserManagementUI extends JPanel {
         formCard.add(roleStatusRow);
         formCard.add(Box.createRigidArea(new Dimension(0, 14)));
 
-        JPanel actionBtns = new JPanel(new GridLayout(1, 2, 10, 0));
+        JPanel actionBtns = new JPanel(new GridLayout(1, 3, 8, 0));
         actionBtns.setOpaque(false);
         actionBtns.setAlignmentX(Component.LEFT_ALIGNMENT);
         actionBtns.setMaximumSize(new Dimension(1400, 36));
@@ -149,7 +149,17 @@ public class UserManagementUI extends JPanel {
         btnClear.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnClear.addActionListener(e -> clearForm());
 
-        btnSave = new JButton("Save Staff Account");
+        btnDeleteForm = new JButton("Delete");
+        btnDeleteForm.setFont(new Font("Century Gothic", Font.BOLD, 11));
+        btnDeleteForm.setBackground(new Color(254, 242, 242));
+        btnDeleteForm.setForeground(new Color(239, 68, 68));
+        btnDeleteForm.setFocusPainted(false);
+        btnDeleteForm.setBorderPainted(false);
+        btnDeleteForm.setEnabled(false);
+        btnDeleteForm.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnDeleteForm.addActionListener(e -> handleDeleteUser(selectedUserId));
+
+        btnSave = new JButton("Save Staff");
         btnSave.setFont(new Font("Century Gothic", Font.BOLD, 11));
         btnSave.setBackground(new Color(99, 102, 241));
         btnSave.setForeground(Color.WHITE);
@@ -159,6 +169,7 @@ public class UserManagementUI extends JPanel {
         btnSave.addActionListener(e -> handleSaveUser());
 
         actionBtns.add(btnClear);
+        actionBtns.add(btnDeleteForm);
         actionBtns.add(btnSave);
 
         formCard.add(actionBtns);
@@ -178,13 +189,38 @@ public class UserManagementUI extends JPanel {
         tableTitle.setFont(new Font("Century Gothic", Font.BOLD, 15));
         tableTitle.setForeground(new Color(30, 41, 59));
 
+        JPanel tableControls = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        tableControls.setOpaque(false);
+
+        btnDeleteTable = new JButton("🗑️ Delete User");
+        btnDeleteTable.setFont(new Font("Segoe UI Emoji", Font.BOLD, 11));
+        btnDeleteTable.setBackground(new Color(254, 242, 242));
+        btnDeleteTable.setForeground(new Color(239, 68, 68));
+        btnDeleteTable.setFocusPainted(false);
+        btnDeleteTable.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnDeleteTable.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(new Color(254, 202, 202), 1, true),
+                new EmptyBorder(5, 10, 5, 10)
+        ));
+        btnDeleteTable.addActionListener(e -> {
+            int viewRow = userTable.getSelectedRow();
+            if (viewRow == -1) {
+                JOptionPane.showMessageDialog(this, "Please select a user from the table first.", "Selection Required", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            int modelRow = userTable.convertRowIndexToModel(viewRow);
+            String userId = (String) tableModel.getValueAt(modelRow, 0);
+            handleDeleteUser(userId);
+        });
+
         JTextField searchBox = new JTextField();
         searchBox.setFont(new Font("Century Gothic", Font.PLAIN, 12));
-        searchBox.setPreferredSize(new Dimension(190, 28));
+        searchBox.setPreferredSize(new Dimension(180, 28));
         searchBox.setBorder(BorderFactory.createCompoundBorder(
                 new LineBorder(new Color(226, 232, 240), 1, true),
                 new EmptyBorder(4, 8, 4, 8)
         ));
+        searchBox.setToolTipText("Search by Name, Username, Role, or Email");
 
         searchBox.getDocument().addDocumentListener(new DocumentListener() {
             @Override
@@ -195,8 +231,11 @@ public class UserManagementUI extends JPanel {
             public void changedUpdate(DocumentEvent e) { filterTable(searchBox.getText().trim()); }
         });
 
+        tableControls.add(btnDeleteTable);
+        tableControls.add(searchBox);
+
         headerRow.add(tableTitle, BorderLayout.WEST);
-        headerRow.add(searchBox, BorderLayout.EAST);
+        headerRow.add(tableControls, BorderLayout.EAST);
 
         String[] cols = {"User ID", "Full Name", "Username", "Email", "Role", "Last Login", "Status", "Phone"};
         tableModel = new DefaultTableModel(new Object[][]{}, cols) {
@@ -313,6 +352,7 @@ public class UserManagementUI extends JPanel {
 
         btnSave.setText("Update Account");
         btnSave.setBackground(new Color(16, 185, 129));
+        btnDeleteForm.setEnabled(true);
     }
 
     private void addFormGroup(JPanel parent, String labelText, JComponent input) {
@@ -363,6 +403,7 @@ public class UserManagementUI extends JPanel {
 
         btnSave.setText("Save Staff Account");
         btnSave.setBackground(new Color(99, 102, 241));
+        btnDeleteForm.setEnabled(false);
         userTable.clearSelection();
     }
 
@@ -442,6 +483,72 @@ public class UserManagementUI extends JPanel {
         } catch (SQLException e) {
             e.printStackTrace();
             JOptionPane.showMessageDialog(this, "Database Error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void handleDeleteUser(String userId) {
+        if (userId == null || userId.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please select an account to delete.", "No User Selected", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        Connection conn = DBConnection.getConnection();
+        if (conn == null) {
+            JOptionPane.showMessageDialog(this, "Database connection not available.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(
+                this,
+                "Are you sure you want to permanently delete user [" + userId + "]?\nAll associated staff assignments will be unlinked.",
+                "Confirm Account Deletion",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+        );
+
+        if (confirm != JOptionPane.YES_OPTION) return;
+
+        try {
+            conn.setAutoCommit(false);
+
+            String unlinkGuestSql = "UPDATE Guests SET user_id = NULL WHERE user_id = ?";
+            try (PreparedStatement pstUnlinkGuest = conn.prepareStatement(unlinkGuestSql)) {
+                pstUnlinkGuest.setString(1, userId);
+                pstUnlinkGuest.executeUpdate();
+            }
+
+            String unlinkHousekeepingSql = "UPDATE HousekeepingRequests SET assigned_staff_id = NULL WHERE assigned_staff_id = ?";
+            try (PreparedStatement pstHk = conn.prepareStatement(unlinkHousekeepingSql)) {
+                pstHk.setString(1, userId);
+                pstHk.executeUpdate();
+            } catch (SQLException ignored) {
+                try (PreparedStatement pstHkAlt = conn.prepareStatement("UPDATE HousekeepingRequests SET assigned_staff = NULL WHERE assigned_staff = ?")) {
+                    pstHkAlt.setString(1, userId);
+                    pstHkAlt.executeUpdate();
+                } catch (SQLException ignored2) {}
+            }
+
+            String deleteUserSql = "DELETE FROM Users WHERE user_id = ?";
+            try (PreparedStatement pstDelete = conn.prepareStatement(deleteUserSql)) {
+                pstDelete.setString(1, userId);
+                int rows = pstDelete.executeUpdate();
+
+                if (rows > 0) {
+                    conn.commit();
+                    JOptionPane.showMessageDialog(this, "Account [" + userId + "] deleted successfully.", "User Deleted", JOptionPane.INFORMATION_MESSAGE);
+                    loadUsersFromDatabase();
+                    clearForm();
+                } else {
+                    conn.rollback();
+                    JOptionPane.showMessageDialog(this, "User ID not found in database.", "Deletion Failed", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        } catch (SQLException e) {
+            try { conn.rollback(); } catch (SQLException ignored) {}
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Database Error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        } finally {
+            try { conn.setAutoCommit(true); } catch (SQLException ignored) {}
         }
     }
 

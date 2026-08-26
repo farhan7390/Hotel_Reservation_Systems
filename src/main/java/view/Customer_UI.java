@@ -457,20 +457,19 @@ public class Customer_UI extends JFrame {
         Connection conn = DBConnection.getConnection();
         if (conn == null) return false;
 
-        String userId = "USR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         String guestId = "GST-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         String username = email.contains("@") ? email.substring(0, email.indexOf("@")) : email;
 
-        String insertUserSql = "INSERT INTO Users (user_id, full_name, username, email, password_hash, phone, role, status) " +
-                "VALUES (?, ?, ?, ?, ?, ?, 'STAFF', 'ACTIVE')";
+//        String insertUserSql = "INSERT INTO Users (user_id, full_name, username, email, password_hash, phone, role, status) " +
+//                "VALUES (?, ?, ?, ?, ?, ?, 'CUSTOMER', 'ACTIVE')";
 
-        String insertGuestSql = "INSERT INTO Guests (guest_id, user_id, full_name, nid_passport, phone, email, city, vip_tier, loyalty_points, guest_status) " +
+        String insertGuestSql = "INSERT INTO Guests (guest_id, full_name, nid_passport, phone, email, password_hash, city, vip_tier, loyalty_points, guest_status) " +
                 "VALUES (?, ?, ?, ?, ?, ?, 'Yangon', 'STANDARD', 0, 'ACTIVE')";
 
         try {
             conn.setAutoCommit(false);
 
-            try (PreparedStatement pstUser = conn.prepareStatement(insertUserSql)) {
+            /*try (PreparedStatement pstUser = conn.prepareStatement(insertUserSql)) {
                 pstUser.setString(1, userId);
                 pstUser.setString(2, fullName);
                 pstUser.setString(3, username);
@@ -478,15 +477,15 @@ public class Customer_UI extends JFrame {
                 pstUser.setString(5, password);
                 pstUser.setString(6, phone);
                 pstUser.executeUpdate();
-            }
+            }*/
 
             try (PreparedStatement pstGuest = conn.prepareStatement(insertGuestSql)) {
                 pstGuest.setString(1, guestId);
-                pstGuest.setString(2, userId);
-                pstGuest.setString(3, fullName);
-                pstGuest.setString(4, idProof);
-                pstGuest.setString(5, phone);
-                pstGuest.setString(6, email);
+                pstGuest.setString(2, fullName);
+                pstGuest.setString(3, idProof);
+                pstGuest.setString(4, phone);
+                pstGuest.setString(5, email);
+                pstGuest.setString(6, password);
                 pstGuest.executeUpdate();
             }
 
