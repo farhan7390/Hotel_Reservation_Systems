@@ -26,6 +26,8 @@ public class User_UI extends JFrame {
         setResizable(false);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
+        util.AppIcon.setFrameIcon(this, "/images/favicon1.png");
+
         add(leftBanner());
         add(rightBanner());
     }

@@ -28,6 +28,8 @@ public class MainAdminFrame extends JFrame {
         JPanel mainArea = new JPanel(new BorderLayout());
         mainArea.add(createTopBar(), BorderLayout.NORTH);
 
+        util.AppIcon.setFrameIcon(this, "/images/favicon.png");
+
         registerAuthorizedCards();
 
         mainArea.add(contentCardsPanel, BorderLayout.CENTER);

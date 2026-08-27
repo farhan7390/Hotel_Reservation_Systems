@@ -32,6 +32,8 @@ public class Customer_Screen extends JFrame {
     private JLabel lblLoyaltyPointsBadge, lblLoyaltyTierBadge;
     private JProgressBar tierProgressBar;
     private DefaultTableModel modelMyReservations;
+    private JPanel pnlVouchersList;
+    private JLabel lblValName, lblValPhone, lblValEmail, lblValCity, lblValNid, lblValPref;
 
     public Customer_Screen() {
         this.currentGuest = CustomerDBA.getGuestProfile(User_UI.getUname());
@@ -53,6 +55,8 @@ public class Customer_Screen extends JFrame {
         contentCardsPanel.add(createHousekeepingRequestPanel(), "HOUSEKEEPING");
         contentCardsPanel.add(createMyBillPanel(), "MY_BILL");
         contentCardsPanel.add(createProfilePanel(), "MY_PROFILE");
+
+        util.AppIcon.setFrameIcon(this, "/images/favicon1.png");
 
         mainArea.add(contentCardsPanel, BorderLayout.CENTER);
         add(mainArea, BorderLayout.CENTER);
@@ -582,6 +586,7 @@ public class Customer_Screen extends JFrame {
         panel.setBackground(new Color(245, 247, 250));
         panel.setBorder(new EmptyBorder(20, 24, 20, 24));
 
+        // Top Banner
         JPanel tierBanner = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -643,12 +648,13 @@ public class Customer_Screen extends JFrame {
         tierBanner.add(tierLeft, BorderLayout.WEST);
         tierBanner.add(tierRight, BorderLayout.EAST);
 
+        // Middle Workspace Row
         JPanel middleRow = new JPanel(new BorderLayout(18, 0));
         middleRow.setOpaque(false);
         middleRow.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JPanel vouchersCard = new JPanel();
-        vouchersCard.setLayout(new BoxLayout(vouchersCard, BoxLayout.Y_AXIS));
+        // Dynamic Vouchers Card (Left)
+        JPanel vouchersCard = new JPanel(new BorderLayout());
         vouchersCard.setBackground(Color.WHITE);
         vouchersCard.setPreferredSize(new Dimension(420, 0));
         vouchersCard.setBorder(BorderFactory.createCompoundBorder(
@@ -656,20 +662,25 @@ public class Customer_Screen extends JFrame {
                 new EmptyBorder(16, 18, 16, 18)
         ));
 
-        JLabel vTitle = new JLabel("Redeem Loyalty Vouchers & Perks");
+        JLabel vTitle = new JLabel("Redeem Loyalty Vouchers & Perks (Database)");
         vTitle.setFont(new Font("Century Gothic", Font.BOLD, 14));
         vTitle.setForeground(new Color(30, 41, 59));
-        vTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
+        vTitle.setBorder(new EmptyBorder(0, 0, 12, 0));
+        vouchersCard.add(vTitle, BorderLayout.NORTH);
 
-        vouchersCard.add(vTitle);
-        vouchersCard.add(Box.createRigidArea(new Dimension(0, 12)));
+        pnlVouchersList = new JPanel();
+        pnlVouchersList.setLayout(new BoxLayout(pnlVouchersList, BoxLayout.Y_AXIS));
+        pnlVouchersList.setOpaque(false);
 
-        vouchersCard.add(createRewardItem("💆 60-Min Aromatherapy Spa", "Cost: 1,200 Points", 1200));
-        vouchersCard.add(Box.createRigidArea(new Dimension(0, 8)));
-        vouchersCard.add(createRewardItem("🍽️ 30,000 MMK Dining Voucher", "Cost: 900 Points", 900));
-        vouchersCard.add(Box.createRigidArea(new Dimension(0, 8)));
-        vouchersCard.add(createRewardItem("🚗 Free Airport Drop Sedan", "Cost: 1,500 Points", 1500));
+        JScrollPane voucherScroll = new JScrollPane(pnlVouchersList);
+        voucherScroll.setBorder(null);
+        voucherScroll.setOpaque(false);
+        voucherScroll.getViewport().setOpaque(false);
+        voucherScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 
+        vouchersCard.add(voucherScroll, BorderLayout.CENTER);
+
+        // Right Ledger Table
         JPanel historyCard = new JPanel(new BorderLayout());
         historyCard.setBackground(Color.WHITE);
         historyCard.setBorder(BorderFactory.createCompoundBorder(
@@ -715,7 +726,32 @@ public class Customer_Screen extends JFrame {
         panel.add(Box.createRigidArea(new Dimension(0, 16)));
         panel.add(middleRow);
 
+        reloadDynamicPerks();
         return panel;
+    }
+
+    private void reloadDynamicPerks() {
+        if (pnlVouchersList == null) return;
+        pnlVouchersList.removeAll();
+
+        List<CustomerDBA.LoyaltyPerkData> perks = CustomerDBA.getActiveLoyaltyPerks();
+        if (perks.isEmpty()) {
+            JLabel emptyLbl = new JLabel("No loyalty perks currently available.");
+            emptyLbl.setFont(new Font("Century Gothic", Font.PLAIN, 12));
+            emptyLbl.setForeground(new Color(148, 163, 184));
+            pnlVouchersList.add(emptyLbl);
+        } else {
+            for (CustomerDBA.LoyaltyPerkData perk : perks) {
+                pnlVouchersList.add(createRewardItem(
+                        perk.title,
+                        String.format("Cost: %,d Points", perk.pointsCost),
+                        perk.pointsCost
+                ));
+                pnlVouchersList.add(Box.createRigidArea(new Dimension(0, 8)));
+            }
+        }
+        pnlVouchersList.revalidate();
+        pnlVouchersList.repaint();
     }
 
     private JPanel createRewardItem(String title, String costStr, int cost) {
@@ -742,13 +778,41 @@ public class Customer_Screen extends JFrame {
         text.add(lblT);
         text.add(lblC);
 
-        JButton btnRedeem = new JButton("Redeem");
-        btnRedeem.setFont(new Font("Century Gothic", Font.BOLD, 11));
-        btnRedeem.setBackground(new Color(16, 185, 129));
+        JButton btnRedeem = new JButton("Redeem") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                if (getModel().isArmed()) {
+                    g2.setColor(new Color(13, 148, 136)); // Darker teal/green on click
+                } else if (getModel().isRollover()) {
+                    g2.setColor(new Color(5, 150, 105)); // Hover green
+                } else {
+                    g2.setColor(new Color(16, 185, 129)); // Default vibrant emerald
+                }
+
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+
+                g2.setColor(Color.WHITE);
+                g2.setFont(getFont());
+                FontMetrics fm = g2.getFontMetrics();
+                int tx = (getWidth() - fm.stringWidth(getText())) / 2;
+                int ty = ((getHeight() - fm.getHeight()) / 2) + fm.getAscent();
+                g2.drawString(getText(), tx, ty);
+
+                g2.dispose();
+            }
+        };
+
+        btnRedeem.setFont(new Font("Century Gothic", Font.BOLD, 12));
         btnRedeem.setForeground(Color.WHITE);
+        btnRedeem.setPreferredSize(new Dimension(88, 30));
         btnRedeem.setFocusPainted(false);
+        btnRedeem.setBorderPainted(false);
+        btnRedeem.setContentAreaFilled(false);
+        btnRedeem.setOpaque(false);
         btnRedeem.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnRedeem.setPreferredSize(new Dimension(82, 28));
         btnRedeem.addActionListener(e -> {
             boolean ok = CustomerDBA.redeemLoyaltyPerk(currentGuest.guestId, title, cost);
             if (ok) {
@@ -1074,6 +1138,7 @@ public class Customer_Screen extends JFrame {
             for (Vector<Object> r : hist) modelLoyaltyHistory.addRow(r);
         }
 
+        reloadDynamicPerks();
         refreshCustomerBill();
     }
 
@@ -1086,46 +1151,155 @@ public class Customer_Screen extends JFrame {
         JPanel profileCard = new JPanel();
         profileCard.setLayout(new BoxLayout(profileCard, BoxLayout.Y_AXIS));
         profileCard.setBackground(Color.WHITE);
-        profileCard.setMaximumSize(new Dimension(1400, 500));
+        profileCard.setMaximumSize(new Dimension(1400, 520));
         profileCard.setBorder(BorderFactory.createCompoundBorder(
                 new LineBorder(new Color(226, 232, 240), 1, true),
-                new EmptyBorder(20, 24, 20, 24)
+                new EmptyBorder(24, 28, 24, 28)
         ));
         profileCard.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel title = new JLabel("Guest Account & Identity Settings");
-        title.setFont(new Font("Century Gothic", Font.BOLD, 16));
+        // Header with Action Buttons
+        JPanel headerRow = new JPanel(new BorderLayout());
+        headerRow.setOpaque(false);
+        headerRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        headerRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel title = new JLabel("Guest Account & Identity Overview");
+        title.setFont(new Font("Century Gothic", Font.BOLD, 17));
         title.setForeground(new Color(30, 41, 59));
-        profileCard.add(title);
-        profileCard.add(Box.createRigidArea(new Dimension(0, 14)));
 
-        JTextField txtName = new JTextField(currentGuest.fullName);
-        JTextField txtPhone = new JTextField(currentGuest.phone);
-        JTextField txtEmail = new JTextField(currentGuest.email);
-        JTextField txtCity = new JTextField(currentGuest.city);
-        JTextField txtNid = new JTextField(currentGuest.nidPassport);
-        JTextArea txtPref = new JTextArea(currentGuest.preferences, 2, 20);
-        txtPref.setFont(new Font("Century Gothic", Font.PLAIN, 12));
-        txtPref.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(new Color(226, 232, 240), 1, true),
-                new EmptyBorder(4, 8, 4, 8)
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        actions.setOpaque(false);
+
+        JButton btnChangePass = new JButton("🔑 Change Password");
+        btnChangePass.setFont(new Font("Segoe UI Emoji", Font.BOLD, 11));
+        btnChangePass.setBackground(new Color(241, 245, 249));
+        btnChangePass.setForeground(new Color(51, 65, 85));
+        btnChangePass.setFocusPainted(false);
+        btnChangePass.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnChangePass.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(new Color(203, 213, 225), 1, true),
+                new EmptyBorder(6, 14, 6, 14)
         ));
+        btnChangePass.addActionListener(e -> openChangePasswordDialog());
 
-        addGuestFormGroup(profileCard, "Full Name", txtName);
-        addGuestFormGroup(profileCard, "Phone Number", txtPhone);
-        addGuestFormGroup(profileCard, "Email Address", txtEmail);
-        addGuestFormGroup(profileCard, "City", txtCity);
-        addGuestFormGroup(profileCard, "NRC / Passport ID", txtNid);
-        addGuestFormGroup(profileCard, "Personal Notes & Preferences", txtPref);
+        JButton btnEditProfile = new JButton("✏️ Edit Profile");
+        btnEditProfile.setFont(new Font("Segoe UI Emoji", Font.BOLD, 11));
+        btnEditProfile.setBackground(new Color(99, 102, 241));
+        btnEditProfile.setForeground(Color.WHITE);
+        btnEditProfile.setFocusPainted(false);
+        btnEditProfile.setBorderPainted(false);
+        btnEditProfile.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnEditProfile.setBorder(BorderFactory.createEmptyBorder(6, 16, 6, 16));
+        btnEditProfile.addActionListener(e -> openEditProfileDialog());
 
-        JButton btnSave = new JButton("Save Profile Changes");
+        actions.add(btnChangePass);
+        actions.add(btnEditProfile);
+
+        headerRow.add(title, BorderLayout.WEST);
+        headerRow.add(actions, BorderLayout.EAST);
+
+        profileCard.add(headerRow);
+        profileCard.add(Box.createRigidArea(new Dimension(0, 16)));
+        profileCard.add(new JSeparator());
+        profileCard.add(Box.createRigidArea(new Dimension(0, 16)));
+
+        // Read-only Details Grid
+        lblValName = createProfileValueLabel(currentGuest.fullName);
+        lblValPhone = createProfileValueLabel(currentGuest.phone);
+        lblValEmail = createProfileValueLabel(currentGuest.email);
+        lblValCity = createProfileValueLabel(currentGuest.city);
+        lblValNid = createProfileValueLabel(currentGuest.nidPassport);
+        lblValPref = createProfileValueLabel(currentGuest.preferences.isEmpty() ? "None recorded" : currentGuest.preferences);
+
+        addProfileFieldView(profileCard, "Full Name", lblValName);
+        addProfileFieldView(profileCard, "Phone Number", lblValPhone);
+        addProfileFieldView(profileCard, "Email Address", lblValEmail);
+        addProfileFieldView(profileCard, "City / Location", lblValCity);
+        addProfileFieldView(profileCard, "NRC / Passport ID", lblValNid);
+        addProfileFieldView(profileCard, "Personal Notes & Preferences", lblValPref);
+
+        panel.add(profileCard);
+        return panel;
+    }
+
+    private void addProfileFieldView(JPanel parent, String title, JLabel valueLabel) {
+        JPanel row = new JPanel(new BorderLayout());
+        row.setOpaque(false);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 46));
+        row.setBorder(new EmptyBorder(4, 0, 4, 0));
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel lblTitle = new JLabel(title);
+        lblTitle.setFont(new Font("Century Gothic", Font.BOLD, 12));
+        lblTitle.setForeground(new Color(100, 116, 139));
+        lblTitle.setPreferredSize(new Dimension(240, 24));
+
+        row.add(lblTitle, BorderLayout.WEST);
+        row.add(valueLabel, BorderLayout.CENTER);
+
+        parent.add(row);
+        parent.add(Box.createRigidArea(new Dimension(0, 4)));
+    }
+
+    private JLabel createProfileValueLabel(String text) {
+        JLabel label = new JLabel(text != null && !text.isEmpty() ? text : "—");
+        label.setFont(new Font("Century Gothic", Font.PLAIN, 13));
+        label.setForeground(new Color(15, 23, 42));
+        return label;
+    }
+
+    private void openEditProfileDialog() {
+        JDialog dialog = new JDialog(this, "Edit Guest Profile", true);
+        dialog.setSize(440, 520);
+        dialog.setLocationRelativeTo(this);
+        dialog.setLayout(new BorderLayout());
+
+        JPanel form = new JPanel();
+        form.setLayout(new BoxLayout(form, BoxLayout.Y_AXIS));
+        form.setBackground(Color.WHITE);
+        form.setBorder(new EmptyBorder(20, 24, 20, 24));
+
+        JLabel heading = new JLabel("Update Your Information");
+        heading.setFont(new Font("Century Gothic", Font.BOLD, 15));
+        heading.setForeground(new Color(30, 41, 59));
+        form.add(heading);
+        form.add(Box.createRigidArea(new Dimension(0, 14)));
+
+        JTextField txtName = createStyledTextField();
+        txtName.setText(currentGuest.fullName);
+
+        JTextField txtPhone = createStyledTextField();
+        txtPhone.setText(currentGuest.phone);
+
+        JTextField txtEmail = createStyledTextField();
+        txtEmail.setText(currentGuest.email);
+
+        JTextField txtCity = createStyledTextField();
+        txtCity.setText(currentGuest.city);
+
+        JTextField txtNid = createStyledTextField();
+        txtNid.setText(currentGuest.nidPassport);
+
+        JTextField txtPref = createStyledTextField();
+        txtPref.setText(currentGuest.preferences);
+
+        addGuestFormGroup(form, "Full Name", txtName);
+        addGuestFormGroup(form, "Phone Number", txtPhone);
+        addGuestFormGroup(form, "Email Address", txtEmail);
+        addGuestFormGroup(form, "City", txtCity);
+        addGuestFormGroup(form, "NRC / Passport ID", txtNid);
+        addGuestFormGroup(form, "Personal Preferences", txtPref);
+
+        JButton btnSave = new JButton("Save Changes");
         btnSave.setFont(new Font("Century Gothic", Font.BOLD, 12));
-        btnSave.setBackground(new Color(99, 102, 241));
+        btnSave.setBackground(new Color(16, 185, 129));
         btnSave.setForeground(Color.WHITE);
-        btnSave.setMaximumSize(new Dimension(1400, 38));
+        btnSave.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
         btnSave.setFocusPainted(false);
         btnSave.setBorderPainted(false);
         btnSave.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
         btnSave.addActionListener(e -> {
             boolean ok = CustomerDBA.updateGuestProfile(
                     currentGuest.guestId,
@@ -1136,20 +1310,109 @@ public class Customer_Screen extends JFrame {
                     txtNid.getText().trim(),
                     txtPref.getText().trim()
             );
+
             if (ok) {
-                currentGuest = CustomerDBA.getGuestProfile(User_UI.getUname());
-                lblGuestTopName.setText(currentGuest.fullName);
-                JOptionPane.showMessageDialog(this, "Profile updated successfully!");
+                dialog.dispose();
+                JOptionPane.showMessageDialog(this, "Profile updated successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                refreshCustomerSession();
+                updateProfileLabels();
             } else {
                 JOptionPane.showMessageDialog(this, "Failed to update profile.", "Error", JOptionPane.ERROR_MESSAGE);
             }
         });
 
-        profileCard.add(Box.createRigidArea(new Dimension(0, 10)));
-        profileCard.add(btnSave);
+        form.add(Box.createRigidArea(new Dimension(0, 10)));
+        form.add(btnSave);
 
-        panel.add(profileCard);
-        return panel;
+        dialog.add(form, BorderLayout.CENTER);
+        dialog.setVisible(true);
+    }
+
+    private void openChangePasswordDialog() {
+        JDialog dialog = new JDialog(this, "Security - Change Password", true);
+        dialog.setSize(380, 340);
+        dialog.setLocationRelativeTo(this);
+        dialog.setLayout(new BorderLayout());
+
+        JPanel form = new JPanel();
+        form.setLayout(new BoxLayout(form, BoxLayout.Y_AXIS));
+        form.setBackground(Color.WHITE);
+        form.setBorder(new EmptyBorder(20, 24, 20, 24));
+
+        JLabel heading = new JLabel("Update Account Password");
+        heading.setFont(new Font("Century Gothic", Font.BOLD, 15));
+        heading.setForeground(new Color(30, 41, 59));
+        form.add(heading);
+        form.add(Box.createRigidArea(new Dimension(0, 14)));
+
+        JPasswordField txtCurrent = new JPasswordField();
+        stylePasswordField(txtCurrent);
+
+        JPasswordField txtNew = new JPasswordField();
+        stylePasswordField(txtNew);
+
+        JPasswordField txtConfirm = new JPasswordField();
+        stylePasswordField(txtConfirm);
+
+        addGuestFormGroup(form, "Current Password", txtCurrent);
+        addGuestFormGroup(form, "New Password", txtNew);
+        addGuestFormGroup(form, "Confirm New Password", txtConfirm);
+
+        JButton btnUpdate = new JButton("Change Password");
+        btnUpdate.setFont(new Font("Century Gothic", Font.BOLD, 12));
+        btnUpdate.setBackground(new Color(99, 102, 241));
+        btnUpdate.setForeground(Color.WHITE);
+        btnUpdate.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
+        btnUpdate.setFocusPainted(false);
+        btnUpdate.setBorderPainted(false);
+        btnUpdate.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        btnUpdate.addActionListener(e -> {
+            String curr = new String(txtCurrent.getPassword()).trim();
+            String nPass = new String(txtNew.getPassword()).trim();
+            String cPass = new String(txtConfirm.getPassword()).trim();
+
+            if (curr.isEmpty() || nPass.isEmpty() || cPass.isEmpty()) {
+                JOptionPane.showMessageDialog(dialog, "Please fill in all password fields.", "Validation Error", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            if (!nPass.equals(cPass)) {
+                JOptionPane.showMessageDialog(dialog, "New passwords do not match.", "Password Mismatch", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            boolean ok = CustomerDBA.changeCustomerPassword(currentGuest.guestId, curr, nPass);
+            if (ok) {
+                dialog.dispose();
+                JOptionPane.showMessageDialog(this, "Password changed successfully!", "Security Updated", JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(dialog, "Incorrect current password. Please try again.", "Authentication Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        form.add(Box.createRigidArea(new Dimension(0, 10)));
+        form.add(btnUpdate);
+
+        dialog.add(form, BorderLayout.CENTER);
+        dialog.setVisible(true);
+    }
+
+    private void updateProfileLabels() {
+        if (lblValName != null) lblValName.setText(currentGuest.fullName);
+        if (lblValPhone != null) lblValPhone.setText(currentGuest.phone);
+        if (lblValEmail != null) lblValEmail.setText(currentGuest.email.isEmpty() ? "—" : currentGuest.email);
+        if (lblValCity != null) lblValCity.setText(currentGuest.city);
+        if (lblValNid != null) lblValNid.setText(currentGuest.nidPassport);
+        if (lblValPref != null) lblValPref.setText(currentGuest.preferences.isEmpty() ? "None recorded" : currentGuest.preferences);
+    }
+
+    private void stylePasswordField(JPasswordField pf) {
+        pf.setFont(new Font("Century Gothic", Font.PLAIN, 12));
+        pf.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(new Color(226, 232, 240), 1, true),
+                new EmptyBorder(5, 10, 5, 10)
+        ));
     }
 
     private void addGuestFormGroup(JPanel parent, String labelText, JComponent input) {

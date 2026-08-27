@@ -109,7 +109,7 @@ public class CategoryManagementUI extends JPanel {
         });
 
         panel.add(formCard, BorderLayout.WEST);
-        panel.add(createTableContainer("Database Room Categories", tableRoomCat), BorderLayout.CENTER);
+        panel.add(createTableContainer("Room Categories", tableRoomCat), BorderLayout.CENTER);
         return panel;
     }
 

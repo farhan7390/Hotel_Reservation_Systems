@@ -355,7 +355,7 @@ public class ServiceUI extends JPanel {
         }
     }
 
-    private void openStatusDialog() {
+    /*private void openStatusDialog() {
         if (selectedOrderId == null) {
             JOptionPane.showMessageDialog(this, "Please select an order from the queue table first.", "Selection Required", JOptionPane.WARNING_MESSAGE);
             return;
@@ -378,12 +378,40 @@ public class ServiceUI extends JPanel {
         JComboBox<String> cmbStatus = new JComboBox<>(new String[]{"PREPARING", "IN SERVICE", "DELIVERED", "BILLED", "CANCELLED"});
         styleComboBox(cmbStatus);
 
-        JButton btnSave = new JButton("Update Status");
+        JButton btnSave = new JButton("Update Status") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                if (getModel().isArmed()) {
+                    g2.setColor(new Color(13, 148, 136));
+                } else if (getModel().isRollover()) {
+                    g2.setColor(new Color(5, 150, 105));
+                } else {
+                    g2.setColor(new Color(16, 185, 129));
+                }
+
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+
+                g2.setColor(Color.WHITE);
+                g2.setFont(getFont());
+                FontMetrics fm = g2.getFontMetrics();
+                int tx = (getWidth() - fm.stringWidth(getText())) / 2;
+                int ty = ((getHeight() - fm.getHeight()) / 2) + fm.getAscent();
+                g2.drawString(getText(), tx, ty);
+
+                g2.dispose();
+            }
+        };
         btnSave.setFont(new Font("Century Gothic", Font.BOLD, 12));
-        btnSave.setBackground(new Color(99, 102, 241));
         btnSave.setForeground(Color.WHITE);
+        btnSave.setPreferredSize(new Dimension(88, 30));
+        btnSave.setFocusPainted(false);
+        btnSave.setBorderPainted(false);
+        btnSave.setContentAreaFilled(false);
+        btnSave.setOpaque(false);
         btnSave.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnSave.setMaximumSize(new Dimension(1400, 36));
         btnSave.addActionListener(e -> {
             String newStatus = (String) cmbStatus.getSelectedItem();
             boolean ok = ServiceDBA.updateServiceOrderStatus(selectedOrderId, newStatus);
@@ -402,6 +430,218 @@ public class ServiceUI extends JPanel {
 
         dialog.add(panel, BorderLayout.CENTER);
         dialog.setVisible(true);
+    }*/
+
+    private void openStatusDialog() {
+        if (selectedOrderId == null) {
+            JOptionPane.showMessageDialog(this, "Please select an order from the queue table first.", "Selection Required", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Order Lifecycle Status", true);
+        dialog.setSize(440, 480);
+        dialog.setLocationRelativeTo(this);
+        dialog.setLayout(new BorderLayout());
+        dialog.setResizable(false);
+
+        JPanel root = new JPanel(new BorderLayout());
+        root.setBackground(new Color(248, 250, 252));
+
+        // Top Header Banner
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(Color.WHITE);
+        header.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(226, 232, 240)),
+                new EmptyBorder(18, 22, 18, 22)
+        ));
+
+        JPanel headerText = new JPanel(new GridLayout(2, 1, 0, 3));
+        headerText.setOpaque(false);
+
+        JLabel lblMain = new JLabel("Update Order Lifecycle");
+        lblMain.setFont(new Font("Century Gothic", Font.BOLD, 16));
+        lblMain.setForeground(new Color(15, 23, 42));
+
+        JLabel lblSub = new JLabel("Target: " + selectedOrderId + " • Select new operational state");
+        lblSub.setFont(new Font("Century Gothic", Font.PLAIN, 12));
+        lblSub.setForeground(new Color(100, 116, 139));
+
+        headerText.add(lblMain);
+        headerText.add(lblSub);
+        header.add(headerText, BorderLayout.WEST);
+
+        // Status Selection Grid
+        JPanel body = new JPanel(new GridLayout(5, 1, 0, 8));
+        body.setOpaque(false);
+        body.setBorder(new EmptyBorder(16, 22, 16, 22));
+
+        ButtonGroup statusGroup = new ButtonGroup();
+        final String[] selectedStatusHolder = new String[]{"PREPARING"};
+
+        String[][] statusOptions = {
+                {"PREPARING", "Kitchen / Service Preparation in progress", "🍳", "245,158,11"},
+                {"IN SERVICE", "Dispatched and on the way to guest room", "🛎️", "99,102,241"},
+                {"DELIVERED", "Handed over and confirmed with guest", "✅", "16,185,129"},
+                {"BILLED", "Charged to room folio & closed", "💳", "14,165,233"},
+                {"CANCELLED", "Order voided or cancelled by guest", "❌", "239,68,68"}
+        };
+
+        for (int i = 0; i < statusOptions.length; i++) {
+            String statusKey = statusOptions[i][0];
+            String desc = statusOptions[i][1];
+            String emoji = statusOptions[i][2];
+            String[] rgb = statusOptions[i][3].split(",");
+            Color baseColor = new Color(Integer.parseInt(rgb[0]), Integer.parseInt(rgb[1]), Integer.parseInt(rgb[2]));
+
+            JToggleButton optBtn = createStatusOptionCard(statusKey, desc, emoji, baseColor);
+            if (i == 0) {
+                optBtn.setSelected(true);
+                selectedStatusHolder[0] = statusKey;
+            }
+
+            optBtn.addActionListener(e -> {
+                selectedStatusHolder[0] = statusKey;
+                body.repaint();
+            });
+
+            statusGroup.add(optBtn);
+            body.add(optBtn);
+        }
+
+        // Action Footer Bar
+        JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 14));
+        footer.setBackground(Color.WHITE);
+        footer.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(226, 232, 240)));
+
+        JButton btnCancel = new JButton("Dismiss");
+        btnCancel.setFont(new Font("Century Gothic", Font.BOLD, 12));
+        btnCancel.setForeground(new Color(71, 85, 105));
+        btnCancel.setBackground(new Color(241, 245, 249));
+        btnCancel.setPreferredSize(new Dimension(95, 34));
+        btnCancel.setFocusPainted(false);
+        btnCancel.setBorderPainted(false);
+        btnCancel.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnCancel.addActionListener(e -> dialog.dispose());
+
+        JButton btnApply = new JButton("Apply Status") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setPaint(new GradientPaint(0, 0, new Color(99, 102, 241), getWidth(), 0, new Color(79, 70, 229)));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+
+                g2.setColor(Color.WHITE);
+                g2.setFont(getFont());
+                FontMetrics fm = g2.getFontMetrics();
+                int tx = (getWidth() - fm.stringWidth(getText())) / 2;
+                int ty = ((getHeight() - fm.getHeight()) / 2) + fm.getAscent();
+                g2.drawString(getText(), tx, ty);
+                g2.dispose();
+            }
+        };
+        btnApply.setFont(new Font("Century Gothic", Font.BOLD, 12));
+        btnApply.setForeground(Color.WHITE);
+        btnApply.setPreferredSize(new Dimension(135, 34));
+        btnApply.setFocusPainted(false);
+        btnApply.setBorderPainted(false);
+        btnApply.setContentAreaFilled(false);
+        btnApply.setOpaque(false);
+        btnApply.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        btnApply.addActionListener(e -> {
+            String newStatus = selectedStatusHolder[0];
+            boolean ok = ServiceDBA.updateServiceOrderStatus(selectedOrderId, newStatus);
+            if (ok) {
+                dialog.dispose();
+                loadTableData();
+                JOptionPane.showMessageDialog(this, "Order " + selectedOrderId + " updated to " + newStatus + "!", "Status Updated", JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(dialog, "Failed to update database status.", "Database Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        footer.add(btnCancel);
+        footer.add(btnApply);
+
+        root.add(header, BorderLayout.NORTH);
+        root.add(body, BorderLayout.CENTER);
+        root.add(footer, BorderLayout.SOUTH);
+
+        dialog.add(root);
+        dialog.setVisible(true);
+    }
+
+    private JToggleButton createStatusOptionCard(String title, String subtitle, String icon, Color accentColor) {
+        JToggleButton btn = new JToggleButton() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                boolean sel = isSelected();
+                int w = getWidth();
+                int h = getHeight();
+
+                if (sel) {
+                    g2.setColor(new Color(accentColor.getRed(), accentColor.getGreen(), accentColor.getBlue(), 22));
+                    g2.fillRoundRect(0, 0, w, h, 10, 10);
+                    g2.setColor(accentColor);
+                    g2.setStroke(new BasicStroke(1.8f));
+                    g2.drawRoundRect(1, 1, w - 2, h - 2, 10, 10);
+                } else {
+                    g2.setColor(Color.WHITE);
+                    g2.fillRoundRect(0, 0, w, h, 10, 10);
+                    g2.setColor(new Color(226, 232, 240));
+                    g2.setStroke(new BasicStroke(1f));
+                    g2.drawRoundRect(0, 0, w - 1, h - 1, 10, 10);
+                }
+
+                // Left icon badge
+                g2.setColor(new Color(accentColor.getRed(), accentColor.getGreen(), accentColor.getBlue(), sel ? 50 : 25));
+                g2.fillRoundRect(10, (h - 32) / 2, 32, 32, 8, 8);
+
+                g2.setColor(new Color(15, 23, 42));
+                g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 15));
+                FontMetrics fme = g2.getFontMetrics();
+                int ex = 10 + (32 - fme.stringWidth(icon)) / 2;
+                int ey = ((h - fme.getHeight()) / 2) + fme.getAscent();
+                g2.drawString(icon, ex, ey);
+
+                // Title & Subtitle
+                g2.setFont(new Font("Century Gothic", Font.BOLD, 12));
+                g2.setColor(sel ? accentColor : new Color(30, 41, 59));
+                g2.drawString(title, 52, 20);
+
+                g2.setFont(new Font("Century Gothic", Font.PLAIN, 10));
+                g2.drawString(subtitle, 52, 36);
+
+                // Right Selection Radio Indicator
+                int rx = w - 26;
+                int ry = (h - 14) / 2;
+                if (sel) {
+                    g2.setColor(accentColor);
+                    g2.fillOval(rx, ry, 14, 14);
+                    g2.setColor(Color.WHITE);
+                    g2.fillOval(rx + 4, ry + 4, 6, 6);
+                } else {
+                    g2.setColor(new Color(203, 213, 225));
+                    g2.setStroke(new BasicStroke(1.5f));
+                    g2.drawOval(rx, ry, 14, 14);
+                }
+
+                g2.dispose();
+            }
+        };
+
+        btn.setPreferredSize(new Dimension(380, 52));
+        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 52));
+        btn.setFocusPainted(false);
+        btn.setBorderPainted(false);
+        btn.setContentAreaFilled(false);
+        btn.setOpaque(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return btn;
     }
 
     private void addFormGroup(JPanel parent, String labelText, JComponent input) {

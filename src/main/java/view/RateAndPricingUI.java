@@ -185,7 +185,7 @@ public class RateAndPricingUI extends JPanel {
         headerRow.setOpaque(false);
         headerRow.setBorder(new EmptyBorder(0, 0, 12, 0));
 
-        JLabel tableTitle = new JLabel("Live Tariff Rules & Seasonal Rate Schedule (Database)");
+        JLabel tableTitle = new JLabel("Tariff Rules & Seasonal Rate Schedule");
         tableTitle.setFont(new Font("Century Gothic", Font.BOLD, 15));
         tableTitle.setForeground(new Color(30, 41, 59));
 

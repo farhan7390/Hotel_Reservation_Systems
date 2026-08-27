@@ -181,7 +181,7 @@ public class BookingUI extends JPanel {
         tableHeaderPanel.setOpaque(false);
         tableHeaderPanel.setBorder(new EmptyBorder(0, 0, 12, 0));
 
-        JLabel tableTitle = new JLabel("Live Database Reservations");
+        JLabel tableTitle = new JLabel("Live Reservations");
         tableTitle.setFont(new Font("Century Gothic", Font.BOLD, 16));
         tableTitle.setForeground(new Color(30, 41, 59));
 
@@ -370,7 +370,7 @@ public class BookingUI extends JPanel {
         btnConfirm.setBackground(new Color(16, 185, 129));
     }
 
-    private void openStatusEditDialog() {
+    /*private void openStatusEditDialog() {
         int viewRow = bookingTable.getSelectedRow();
         if (viewRow == -1) {
             JOptionPane.showMessageDialog(this, "Please select a booking from the table first.", "No Selection", JOptionPane.WARNING_MESSAGE);
@@ -399,12 +399,40 @@ public class BookingUI extends JPanel {
         cmbStatus.setSelectedItem(currentStatus);
         styleComboBox(cmbStatus);
 
-        JButton btnSave = new JButton("Update Status");
+        JButton btnSave = new JButton("Update Status") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                if (getModel().isArmed()) {
+                    g2.setColor(new Color(13, 148, 136));
+                } else if (getModel().isRollover()) {
+                    g2.setColor(new Color(5, 150, 105));
+                } else {
+                    g2.setColor(new Color(16, 185, 129));
+                }
+
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+
+                g2.setColor(Color.WHITE);
+                g2.setFont(getFont());
+                FontMetrics fm = g2.getFontMetrics();
+                int tx = (getWidth() - fm.stringWidth(getText())) / 2;
+                int ty = ((getHeight() - fm.getHeight()) / 2) + fm.getAscent();
+                g2.drawString(getText(), tx, ty);
+
+                g2.dispose();
+            }
+        };
         btnSave.setFont(new Font("Century Gothic", Font.BOLD, 12));
-        btnSave.setBackground(new Color(99, 102, 241));
         btnSave.setForeground(Color.WHITE);
+        btnSave.setPreferredSize(new Dimension(88, 30));
+        btnSave.setFocusPainted(false);
+        btnSave.setBorderPainted(false);
+        btnSave.setContentAreaFilled(false);
+        btnSave.setOpaque(false);
         btnSave.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnSave.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
         btnSave.addActionListener(e -> {
             String newStatus = (String) cmbStatus.getSelectedItem();
             boolean ok = BookingDBA.updateBookingStatus(bookingId, newStatus);
@@ -424,6 +452,224 @@ public class BookingUI extends JPanel {
 
         dialog.add(panel, BorderLayout.CENTER);
         dialog.setVisible(true);
+    }*/
+
+    private void openStatusEditDialog() {
+        int viewRow = bookingTable.getSelectedRow();
+        if (viewRow == -1) {
+            JOptionPane.showMessageDialog(this, "Please select a booking from the table first.", "No Selection", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int modelRow = bookingTable.convertRowIndexToModel(viewRow);
+        String bookingId = (String) tableModel.getValueAt(modelRow, 0);
+        String guestName = (String) tableModel.getValueAt(modelRow, 1);
+        String roomNo = (String) tableModel.getValueAt(modelRow, 2);
+        String currentStatus = (String) tableModel.getValueAt(modelRow, 7);
+
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Reservation Lifecycle Status", true);
+        dialog.setSize(440, 440);
+        dialog.setLocationRelativeTo(this);
+        dialog.setLayout(new BorderLayout());
+        dialog.setResizable(false);
+
+        JPanel root = new JPanel(new BorderLayout());
+        root.setBackground(new Color(248, 250, 252));
+
+        // Top Header Banner
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(Color.WHITE);
+        header.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(226, 232, 240)),
+                new EmptyBorder(18, 22, 18, 22)
+        ));
+
+        JPanel headerText = new JPanel(new GridLayout(2, 1, 0, 3));
+        headerText.setOpaque(false);
+
+        JLabel lblMain = new JLabel("Update Reservation Status");
+        lblMain.setFont(new Font("Century Gothic", Font.BOLD, 16));
+        lblMain.setForeground(new Color(15, 23, 42));
+
+        JLabel lblSub = new JLabel("Ref: " + bookingId + " • " + guestName + " (" + roomNo + ")");
+        lblSub.setFont(new Font("Century Gothic", Font.PLAIN, 12));
+        lblSub.setForeground(new Color(100, 116, 139));
+
+        headerText.add(lblMain);
+        headerText.add(lblSub);
+        header.add(headerText, BorderLayout.WEST);
+
+        // Status Cards Container
+        JPanel body = new JPanel(new GridLayout(4, 1, 0, 8));
+        body.setOpaque(false);
+        body.setBorder(new EmptyBorder(16, 22, 16, 22));
+
+        ButtonGroup statusGroup = new ButtonGroup();
+        final String[] selectedStatusHolder = new String[]{currentStatus != null ? currentStatus : "CONFIRMED"};
+
+        String[][] bookingStatusOptions = {
+                {"CONFIRMED", "Room reserved and awaiting guest arrival", "📅", "99,102,241"},
+                {"CHECKED-IN", "Guest is currently active in-house", "🛎️", "16,185,129"},
+                {"COMPLETED", "Stay ended, folio settled & room released", "💳", "14,165,233"},
+                {"CANCELLED", "Booking voided & inventory made available", "❌", "239,68,68"}
+        };
+
+        for (String[] opt : bookingStatusOptions) {
+            String statusKey = opt[0];
+            String desc = opt[1];
+            String emoji = opt[2];
+            String[] rgb = opt[3].split(",");
+            Color baseColor = new Color(Integer.parseInt(rgb[0]), Integer.parseInt(rgb[1]), Integer.parseInt(rgb[2]));
+
+            JToggleButton optBtn = createBookingStatusCard(statusKey, desc, emoji, baseColor);
+            if (statusKey.equalsIgnoreCase(selectedStatusHolder[0])) {
+                optBtn.setSelected(true);
+            }
+
+            optBtn.addActionListener(e -> {
+                selectedStatusHolder[0] = statusKey;
+                body.repaint();
+            });
+
+            statusGroup.add(optBtn);
+            body.add(optBtn);
+        }
+
+        // Action Footer
+        JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 14));
+        footer.setBackground(Color.WHITE);
+        footer.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(226, 232, 240)));
+
+        JButton btnCancel = new JButton("Dismiss");
+        btnCancel.setFont(new Font("Century Gothic", Font.BOLD, 12));
+        btnCancel.setForeground(new Color(71, 85, 105));
+        btnCancel.setBackground(new Color(241, 245, 249));
+        btnCancel.setPreferredSize(new Dimension(95, 34));
+        btnCancel.setFocusPainted(false);
+        btnCancel.setBorderPainted(false);
+        btnCancel.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnCancel.addActionListener(e -> dialog.dispose());
+
+        JButton btnApply = new JButton("Apply Status") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setPaint(new GradientPaint(0, 0, new Color(99, 102, 241), getWidth(), 0, new Color(79, 70, 229)));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+
+                g2.setColor(Color.WHITE);
+                g2.setFont(getFont());
+                FontMetrics fm = g2.getFontMetrics();
+                int tx = (getWidth() - fm.stringWidth(getText())) / 2;
+                int ty = ((getHeight() - fm.getHeight()) / 2) + fm.getAscent();
+                g2.drawString(getText(), tx, ty);
+                g2.dispose();
+            }
+        };
+        btnApply.setFont(new Font("Century Gothic", Font.BOLD, 12));
+        btnApply.setForeground(Color.WHITE);
+        btnApply.setPreferredSize(new Dimension(135, 34));
+        btnApply.setFocusPainted(false);
+        btnApply.setBorderPainted(false);
+        btnApply.setContentAreaFilled(false);
+        btnApply.setOpaque(false);
+        btnApply.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        btnApply.addActionListener(e -> {
+            String newStatus = selectedStatusHolder[0];
+            boolean ok = BookingDBA.updateBookingStatus(bookingId, newStatus);
+            if (ok) {
+                dialog.dispose();
+                loadTableData();
+                updateAvailableRooms();
+                JOptionPane.showMessageDialog(this, "Reservation " + bookingId + " updated to " + newStatus + "!", "Status Updated", JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(dialog, "Failed to update reservation status in database.", "Database Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        footer.add(btnCancel);
+        footer.add(btnApply);
+
+        root.add(header, BorderLayout.NORTH);
+        root.add(body, BorderLayout.CENTER);
+        root.add(footer, BorderLayout.SOUTH);
+
+        dialog.add(root);
+        dialog.setVisible(true);
+    }
+
+    private JToggleButton createBookingStatusCard(String title, String subtitle, String icon, Color accentColor) {
+        JToggleButton btn = new JToggleButton() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                boolean sel = isSelected();
+                int w = getWidth();
+                int h = getHeight();
+
+                if (sel) {
+                    g2.setColor(new Color(accentColor.getRed(), accentColor.getGreen(), accentColor.getBlue(), 22));
+                    g2.fillRoundRect(0, 0, w, h, 10, 10);
+                    g2.setColor(accentColor);
+                    g2.setStroke(new BasicStroke(1.8f));
+                    g2.drawRoundRect(1, 1, w - 2, h - 2, 10, 10);
+                } else {
+                    g2.setColor(Color.WHITE);
+                    g2.fillRoundRect(0, 0, w, h, 10, 10);
+                    g2.setColor(new Color(226, 232, 240));
+                    g2.setStroke(new BasicStroke(1f));
+                    g2.drawRoundRect(0, 0, w - 1, h - 1, 10, 10);
+                }
+
+                // Left Icon Badge Box
+                g2.setColor(new Color(accentColor.getRed(), accentColor.getGreen(), accentColor.getBlue(), sel ? 45 : 20));
+                g2.fillRoundRect(10, (h - 32) / 2, 32, 32, 8, 8);
+
+                g2.setColor(new Color(15, 23, 42));
+                g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 15));
+                FontMetrics fme = g2.getFontMetrics();
+                int ex = 10 + (32 - fme.stringWidth(icon)) / 2;
+                int ey = ((h - fme.getHeight()) / 2) + fme.getAscent();
+                g2.drawString(icon, ex, ey);
+
+                // Title & Subtitle Labels
+                g2.setFont(new Font("Century Gothic", Font.BOLD, 12));
+                g2.setColor(sel ? accentColor : new Color(30, 41, 59));
+                g2.drawString(title, 52, 20);
+
+                g2.setFont(new Font("Century Gothic", Font.PLAIN, 10));
+                g2.drawString(subtitle, 52, 36);
+
+                // Right Radio Indicator
+                int rx = w - 26;
+                int ry = (h - 14) / 2;
+                if (sel) {
+                    g2.setColor(accentColor);
+                    g2.fillOval(rx, ry, 14, 14);
+                    g2.setColor(Color.WHITE);
+                    g2.fillOval(rx + 4, ry + 4, 6, 6);
+                } else {
+                    g2.setColor(new Color(203, 213, 225));
+                    g2.setStroke(new BasicStroke(1.5f));
+                    g2.drawOval(rx, ry, 14, 14);
+                }
+
+                g2.dispose();
+            }
+        };
+
+        btn.setPreferredSize(new Dimension(380, 52));
+        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 52));
+        btn.setFocusPainted(false);
+        btn.setBorderPainted(false);
+        btn.setContentAreaFilled(false);
+        btn.setOpaque(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return btn;
     }
 
     private void handleCancelBooking() {

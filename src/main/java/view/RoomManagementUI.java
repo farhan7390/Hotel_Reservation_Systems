@@ -223,7 +223,7 @@ public class RoomManagementUI extends JPanel {
         headerRow.setOpaque(false);
         headerRow.setBorder(new EmptyBorder(0, 0, 12, 0));
 
-        JLabel tableTitle = new JLabel("Live Room Inventory & Photo Catalog (Database)");
+        JLabel tableTitle = new JLabel("Room Inventory & Photo Catalog");
         tableTitle.setFont(new Font("Century Gothic", Font.BOLD, 15));
         tableTitle.setForeground(new Color(30, 41, 59));
 

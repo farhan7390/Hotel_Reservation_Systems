@@ -202,7 +202,7 @@ public class ReportUI extends JPanel {
         headerRow.setOpaque(false);
         headerRow.setBorder(new EmptyBorder(0, 0, 12, 0));
 
-        JLabel tableTitle = new JLabel("Audit Ledger & Settled Bookings (Database)");
+        JLabel tableTitle = new JLabel("Audit Ledger & Settled Bookings");
         tableTitle.setFont(new Font("Century Gothic", Font.BOLD, 14));
         tableTitle.setForeground(new Color(30, 41, 59));
 

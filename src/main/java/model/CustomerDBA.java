@@ -47,6 +47,63 @@ public class CustomerDBA {
         public boolean hasActiveStay = false;
     }
 
+    public static class LoyaltyPerkData {
+        public int rewardId;
+        public String title;
+        public int pointsCost;
+        public String description;
+
+        public LoyaltyPerkData(int rewardId, String title, int pointsCost, String description) {
+            this.rewardId = rewardId;
+            this.title = title;
+            this.pointsCost = pointsCost;
+            this.description = description;
+        }
+    }
+
+    public static List<LoyaltyPerkData> getActiveLoyaltyPerks() {
+        List<LoyaltyPerkData> perks = new ArrayList<>();
+        Connection conn = DBConnection.getConnection();
+        if (conn == null) return perks;
+
+        String sql = "SELECT reward_id, reward_title, points_cost, ISNULL(description, '') AS description " +
+                "FROM LoyaltyRewards " +
+                "WHERE is_active = 1 " +
+                "ORDER BY points_cost ASC";
+
+        try (PreparedStatement pst = conn.prepareStatement(sql);
+             ResultSet rs = pst.executeQuery()) {
+
+            while (rs.next()) {
+                perks.add(new LoyaltyPerkData(
+                        rs.getInt("reward_id"),
+                        rs.getString("reward_title"),
+                        rs.getInt("points_cost"),
+                        rs.getString("description")
+                ));
+            }
+        } catch (SQLException e) {
+            // Fallback query if table name in your schema is LoyaltyPerks
+            try (PreparedStatement pstFallback = conn.prepareStatement(
+                    "SELECT perk_id, perk_name, points_cost FROM LoyaltyPerks WHERE is_active = 1")) {
+                try (ResultSet rsFb = pstFallback.executeQuery()) {
+                    while (rsFb.next()) {
+                        perks.add(new LoyaltyPerkData(
+                                rsFb.getInt("perk_id"),
+                                rsFb.getString("perk_name"),
+                                rsFb.getInt("points_cost"),
+                                ""
+                        ));
+                    }
+                }
+            } catch (SQLException ignored) {
+                e.printStackTrace();
+            }
+        }
+        return perks;
+    }
+
+
     /*public static boolean createCustomerBooking(String guestId, String roomNo, String tierName, LocalDate inDate, LocalDate outDate) {
         Connection conn = DBConnection.getConnection();
         if (conn == null || guestId == null || guestId.trim().isEmpty()) return false;
@@ -728,6 +785,46 @@ public class CustomerDBA {
             pst.setString(5, nidPassport);
             pst.setString(6, preferences);
             return pst.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public static boolean changeCustomerPassword(String guestId, String currentPassword, String newPassword) {
+        Connection conn = DBConnection.getConnection();
+        if (conn == null || guestId == null) return false;
+
+        String checkSql = "SELECT g.guest_id, g.password_hash FROM Guests "+
+                "WHERE guest_id = ?";
+
+        String updateSql = "UPDATE Guests SET password_hash = ? WHERE guest_id = ?";
+
+        try {
+            String guestID = null;
+            String existingHash = null;
+
+            try (PreparedStatement pstCheck = conn.prepareStatement(checkSql)) {
+                pstCheck.setString(1, guestId);
+                try (ResultSet rs = pstCheck.executeQuery()) {
+                    if (rs.next()) {
+                        guestID = rs.getString("user_id");
+                        existingHash = rs.getString("password_hash");
+                    }
+                }
+            }
+
+            if (guestID == null) return false;
+
+            if (existingHash == null || !existingHash.equals(currentPassword)) {
+                return false;
+            }
+
+            try (PreparedStatement pstUpdate = conn.prepareStatement(updateSql)) {
+                pstUpdate.setString(1, newPassword);
+                pstUpdate.setString(2, guestID);
+                return pstUpdate.executeUpdate() > 0;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
             return false;

@@ -181,7 +181,7 @@ public class CustomerUI extends JPanel {
         headerRow.setOpaque(false);
         headerRow.setBorder(new EmptyBorder(0, 0, 12, 0));
 
-        JLabel tableTitle = new JLabel("Master Guest Directory & Loyalty Record (Database)");
+        JLabel tableTitle = new JLabel("Master Guest Directory & Loyalty Record");
         tableTitle.setFont(new Font("Century Gothic", Font.BOLD, 15));
         tableTitle.setForeground(new Color(30, 41, 59));
 

@@ -285,6 +285,8 @@ public class Customer_UI extends JFrame {
 
         User_UI userUi = new User_UI();
 
+        util.AppIcon.setFrameIcon(this, "/images/favicon1.png");
+
         add(userUi.leftBanner());
         add(rightBanner());
     }
