@@ -61,6 +61,107 @@ public class CustomerDBA {
         }
     }
 
+    public static Vector<Vector<Object>> getGuestHousekeepingHistory(String guestId) {
+        Vector<Vector<Object>> data = new Vector<>();
+        String sql = "SELECT request_id, request_type, preferred_time_slot, " +
+                "CONVERT(VARCHAR(8), created_at, 108) AS req_time, ISNULL(task_status, 'PENDING') AS status " +
+                "FROM HousekeepingRequests " +
+                "WHERE guest_id = ? ORDER BY created_at DESC";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pst = conn.prepareStatement(sql)) {
+            pst.setString(1, guestId);
+            try (ResultSet rs = pst.executeQuery()) {
+                while (rs.next()) {
+                    Vector<Object> row = new Vector<>();
+                    row.add("REQ-" + rs.getInt("request_id"));
+                    row.add(rs.getString("request_type"));
+                    row.add(rs.getString("preferred_time_slot"));
+                    row.add(rs.getString("req_time"));
+                    row.add(rs.getString("status"));
+                    data.add(row);
+                }
+            }
+        } catch (SQLException e) {
+            // Fallback if schema doesn't have auto-increment request_id
+            String fallbackSql = "SELECT request_type, preferred_time_slot, task_status FROM HousekeepingRequests WHERE guest_id = ? ORDER BY request_id DESC";
+            try (Connection conn = DBConnection.getConnection();
+                 PreparedStatement pstFb = conn.prepareStatement(fallbackSql)) {
+                pstFb.setString(1, guestId);
+                try (ResultSet rsFb = pstFb.executeQuery()) {
+                    int count = 1;
+                    while (rsFb.next()) {
+                        Vector<Object> row = new Vector<>();
+                        row.add("HK-" + (100 + count++));
+                        row.add(rsFb.getString("request_type"));
+                        row.add(rsFb.getString("preferred_time_slot"));
+                        row.add("Just now");
+                        row.add(rsFb.getString("task_status"));
+                        data.add(row);
+                    }
+                }
+            } catch (SQLException ignored) {}
+        }
+        return data;
+    }
+
+    public static Vector<Vector<Object>> getFolioItemizedCharges(String guestId) {
+        Vector<Vector<Object>> data = new Vector<>();
+        Connection conn = DBConnection.getConnection();
+        if (conn == null || guestId == null || guestId.isEmpty()) return data;
+
+        // 1. Get Room Accommodation Charge
+        String roomSql = "SELECT b.booking_ref, 'Room Stay (' + rc.category_name + ')' AS item_name, " +
+                "b.total_nights_days AS qty, b.room_total_amount AS amount, CONVERT(VARCHAR(10), b.check_in_date, 103) AS charge_date " +
+                "FROM Bookings b " +
+                "INNER JOIN Rooms r ON b.room_no = r.room_no " +
+                "INNER JOIN RoomCategories rc ON r.category_id = rc.category_id " +
+                "WHERE b.guest_id = ? AND b.booking_status IN ('CHECKED-IN', 'CONFIRMED')";
+
+        // 2. Get Room Service Charges
+        String serviceSql = "SELECT sc.service_name, rso.quantity, rso.total_amount, " +
+                "CONVERT(VARCHAR(10), rso.ordered_at, 103) + ' ' + CONVERT(VARCHAR(5), rso.ordered_at, 108) AS order_time " +
+                "FROM RoomServiceOrders rso " +
+                "INNER JOIN ServiceCatalog sc ON rso.service_id = sc.service_id " +
+                "INNER JOIN Bookings b ON rso.booking_ref = b.booking_ref " +
+                "WHERE b.guest_id = ? AND rso.order_status != 'CANCELLED'";
+
+        try {
+            try (PreparedStatement pstR = conn.prepareStatement(roomSql)) {
+                pstR.setString(1, guestId);
+                try (ResultSet rsR = pstR.executeQuery()) {
+                    while (rsR.next()) {
+                        Vector<Object> row = new Vector<>();
+                        row.add(rsR.getString("charge_date"));
+                        row.add(rsR.getString("item_name"));
+                        row.add(rsR.getInt("qty") + " Unit(s)");
+                        row.add(String.format("%,d MMK", rsR.getBigDecimal("amount").longValue()));
+                        row.add("CHARGED");
+                        data.add(row);
+                    }
+                }
+            }
+
+            try (PreparedStatement pstS = conn.prepareStatement(serviceSql)) {
+                pstS.setString(1, guestId);
+                try (ResultSet rsS = pstS.executeQuery()) {
+                    while (rsS.next()) {
+                        Vector<Object> row = new Vector<>();
+                        row.add(rsS.getString("order_time"));
+                        row.add("Room Service: " + rsS.getString("service_name"));
+                        row.add(rsS.getInt("quantity") + "x");
+                        row.add(String.format("%,d MMK", rsS.getBigDecimal("total_amount").longValue()));
+                        row.add("BILLED");
+                        data.add(row);
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return data;
+    }
+
     public static List<LoyaltyPerkData> getActiveLoyaltyPerks() {
         List<LoyaltyPerkData> perks = new ArrayList<>();
         Connection conn = DBConnection.getConnection();
