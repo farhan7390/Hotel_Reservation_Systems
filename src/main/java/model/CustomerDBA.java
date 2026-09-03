@@ -105,12 +105,71 @@ public class CustomerDBA {
         return data;
     }
 
+    public static List<RoomCardData> getAvailableRoomCardsForDates(LocalDate inDate, LocalDate outDate) {
+        List<RoomCardData> list = new ArrayList<>();
+        Connection conn = DBConnection.getConnection();
+        if (conn == null || inDate == null || outDate == null) return list;
+
+        // Date overlap logic: check_in_date < outDate AND check_out_date > inDate
+        String query = "SELECT r.room_no, rc.category_name, r.floor_level, rc.base_night_rate, " +
+                "r.has_balcony, r.has_sea_view, r.has_jacuzzi, r.image_path " +
+                "FROM Rooms r " +
+                "INNER JOIN RoomCategories rc ON r.category_id = rc.category_id " +
+                "WHERE r.status != 'MAINTENANCE' " +
+                "AND r.room_no NOT IN (" +
+                "    SELECT b.room_no FROM Bookings b " +
+                "    WHERE b.booking_status IN ('CONFIRMED', 'CHECKED-IN') " +
+                "    AND b.check_in_date < ? " +
+                "    AND b.check_out_date > ? " +
+                ") " +
+                "ORDER BY r.room_no";
+
+        try (PreparedStatement pst = conn.prepareStatement(query)) {
+            pst.setDate(1, java.sql.Date.valueOf(outDate));
+            pst.setDate(2, java.sql.Date.valueOf(inDate));
+
+            try (ResultSet rs = pst.executeQuery()) {
+                while (rs.next()) {
+                    RoomCardData r = new RoomCardData();
+                    r.roomNo = rs.getString("room_no");
+                    r.title = rs.getString("category_name");
+                    r.floor = rs.getString("floor_level");
+                    r.price = String.format("%,d MMK / night", rs.getBigDecimal("base_night_rate").longValue());
+                    r.tierBadge = "Available Now";
+
+                    StringBuilder amenities = new StringBuilder();
+                    if (rs.getBoolean("has_balcony")) amenities.append("Balcony, ");
+                    if (rs.getBoolean("has_sea_view")) amenities.append("Sea View, ");
+                    if (rs.getBoolean("has_jacuzzi")) amenities.append("Jacuzzi, ");
+                    amenities.append("Free Wi-Fi, Air-Conditioned");
+                    r.features = amenities.toString();
+
+                    String customImg = rs.getString("image_path");
+                    if (customImg != null && !customImg.trim().isEmpty()) {
+                        r.imagePaths = new String[]{customImg};
+                    } else {
+                        String cleanNum = r.roomNo.toLowerCase().replace("-", "");
+                        r.imagePaths = new String[]{
+                                "/images/rooms/" + cleanNum + "_1.jpg",
+                                "/images/rooms/" + cleanNum + "_2.jpg",
+                                "/images/rooms/" + cleanNum + "_3.jpg"
+                        };
+                    }
+                    list.add(r);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
+
     public static Vector<Vector<Object>> getFolioItemizedCharges(String guestId) {
         Vector<Vector<Object>> data = new Vector<>();
         Connection conn = DBConnection.getConnection();
         if (conn == null || guestId == null || guestId.isEmpty()) return data;
 
-        // 1. Get Room Accommodation Charge
+        // 1. Room Accommodation for ACTIVE stay only
         String roomSql = "SELECT b.booking_ref, 'Room Stay (' + rc.category_name + ')' AS item_name, " +
                 "b.total_nights_days AS qty, b.room_total_amount AS amount, CONVERT(VARCHAR(10), b.check_in_date, 103) AS charge_date " +
                 "FROM Bookings b " +
@@ -118,13 +177,13 @@ public class CustomerDBA {
                 "INNER JOIN RoomCategories rc ON r.category_id = rc.category_id " +
                 "WHERE b.guest_id = ? AND b.booking_status IN ('CHECKED-IN', 'CONFIRMED')";
 
-        // 2. Get Room Service Charges
+        // 2. Room Service Orders linked ONLY to the ACTIVE stay
         String serviceSql = "SELECT sc.service_name, rso.quantity, rso.total_amount, " +
                 "CONVERT(VARCHAR(10), rso.ordered_at, 103) + ' ' + CONVERT(VARCHAR(5), rso.ordered_at, 108) AS order_time " +
                 "FROM RoomServiceOrders rso " +
                 "INNER JOIN ServiceCatalog sc ON rso.service_id = sc.service_id " +
                 "INNER JOIN Bookings b ON rso.booking_ref = b.booking_ref " +
-                "WHERE b.guest_id = ? AND rso.order_status != 'CANCELLED'";
+                "WHERE b.guest_id = ? AND b.booking_status IN ('CHECKED-IN', 'CONFIRMED') AND rso.order_status != 'CANCELLED'";
 
         try {
             try (PreparedStatement pstR = conn.prepareStatement(roomSql)) {
@@ -512,11 +571,12 @@ public class CustomerDBA {
         String updateOrdersSql = "UPDATE RoomServiceOrders SET order_status = 'BILLED' WHERE booking_ref = ? AND order_status != 'CANCELLED'";
         String updateRoomSql = "UPDATE Rooms SET status = 'AVAILABLE' WHERE room_no = ?";
 
+        // Prevents tier downgrades by prioritizing the member's current tier
         String updateGuestPointsSql = "UPDATE Guests SET loyalty_points = loyalty_points + ?, " +
                 "vip_tier = CASE " +
-                "  WHEN loyalty_points + ? >= 3500 THEN 'PLATINUM VIP' " +
-                "  WHEN loyalty_points + ? >= 2000 THEN 'GOLD VIP' " +
-                "  WHEN loyalty_points + ? >= 1000 THEN 'SILVER VIP' " +
+                "  WHEN vip_tier = 'PLATINUM VIP' OR loyalty_points + ? >= 3500 THEN 'PLATINUM VIP' " +
+                "  WHEN vip_tier = 'GOLD VIP' OR loyalty_points + ? >= 2000 THEN 'GOLD VIP' " +
+                "  WHEN vip_tier = 'SILVER VIP' OR loyalty_points + ? >= 1000 THEN 'SILVER VIP' " +
                 "  ELSE vip_tier END " +
                 "WHERE guest_id = ?";
 
@@ -885,6 +945,7 @@ public class CustomerDBA {
             pst.setString(4, city);
             pst.setString(5, nidPassport);
             pst.setString(6, preferences);
+            pst.setString(7, guestId);
             return pst.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
@@ -896,7 +957,7 @@ public class CustomerDBA {
         Connection conn = DBConnection.getConnection();
         if (conn == null || guestId == null) return false;
 
-        String checkSql = "SELECT g.guest_id, g.password_hash FROM Guests "+
+        String checkSql = "SELECT guest_id, password_hash FROM Guests "+
                 "WHERE guest_id = ?";
 
         String updateSql = "UPDATE Guests SET password_hash = ? WHERE guest_id = ?";
@@ -909,7 +970,7 @@ public class CustomerDBA {
                 pstCheck.setString(1, guestId);
                 try (ResultSet rs = pstCheck.executeQuery()) {
                     if (rs.next()) {
-                        guestID = rs.getString("user_id");
+                        guestID = rs.getString("guest_id");
                         existingHash = rs.getString("password_hash");
                     }
                 }

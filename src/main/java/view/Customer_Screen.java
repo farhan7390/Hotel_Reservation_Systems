@@ -1784,11 +1784,11 @@ public class Customer_Screen extends JFrame {
                 int panelW = getWidth();
                 int panelH = getHeight();
 
-                URL logoUrl = getClass().getResource("/images/logo3.png");
+                URL logoUrl = getClass().getResource("/images/logofinal.png");
                 if (logoUrl != null) {
                     Image logo = new ImageIcon(logoUrl).getImage();
-                    int logoW = 110;
-                    int logoH = 60;
+                    int logoW = 190;
+                    int logoH = 80;
                     int x = (panelW - logoW) / 2;
                     int y = (panelH - logoH) / 2;
 
@@ -1975,19 +1975,30 @@ public class Customer_Screen extends JFrame {
         return topBar;
     }
 
+    // State variables for active search filter
+    private LocalDate searchCheckIn = LocalDate.now();
+    private LocalDate searchCheckOut = LocalDate.now().plusDays(2);
+    private int searchGuestCount = 2;
+    private JPanel roomCardsGridContainer;
+
     private JPanel createExploreAndBookPanel() {
         JPanel panel = new JPanel(new BorderLayout(0, 16));
         panel.setBackground(new Color(248, 250, 252));
         panel.setBorder(new EmptyBorder(22, 28, 22, 28));
 
+        // 1. Top Section: Header + Date & Guest Search Bar
+        JPanel topContainer = new JPanel();
+        topContainer.setLayout(new BoxLayout(topContainer, BoxLayout.Y_AXIS));
+        topContainer.setOpaque(false);
+
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setOpaque(false);
 
-        JLabel sectionTitle = new JLabel("Available Suites & Stays");
+        JLabel sectionTitle = new JLabel("Explore Suites & Live Availability");
         sectionTitle.setFont(new Font("Century Gothic", Font.BOLD, 18));
         sectionTitle.setForeground(new Color(15, 23, 42));
 
-        JLabel subTitle = new JLabel("Browse available rooms and reserve with instant automated confirmation");
+        JLabel subTitle = new JLabel("Filter suites by scheduled dates to view units available for your itinerary");
         subTitle.setFont(new Font("Century Gothic", Font.PLAIN, 12));
         subTitle.setForeground(new Color(100, 116, 139));
 
@@ -1995,38 +2006,110 @@ public class Customer_Screen extends JFrame {
         titleBox.setOpaque(false);
         titleBox.add(sectionTitle);
         titleBox.add(subTitle);
-
         headerPanel.add(titleBox, BorderLayout.WEST);
-        panel.add(headerPanel, BorderLayout.NORTH);
 
-        List<CustomerDBA.RoomCardData> rooms = CustomerDBA.getAvailableRoomCards();
-        int cols = 3;
-        int rows = Math.max(1, (int) Math.ceil(rooms.size() / 3.0));
+        topContainer.add(headerPanel);
+        topContainer.add(Box.createRigidArea(new Dimension(0, 14)));
 
-        JPanel gridPanel = new JPanel(new GridLayout(rows, cols, 18, 18));
-        gridPanel.setOpaque(false);
+        // Search Filter Bar Panel
+        JPanel searchBarCard = createModernCardPanel();
+        searchBarCard.setLayout(new BorderLayout(14, 0));
+        searchBarCard.setBorder(new EmptyBorder(12, 18, 12, 18));
+        searchBarCard.setMaximumSize(new Dimension(Integer.MAX_VALUE, 68));
 
-        for (CustomerDBA.RoomCardData r : rooms) {
-            gridPanel.add(createRoomCard(
-                    r.roomNo, r.title, r.floor, r.price, r.tierBadge, r.features, new Color(99, 102, 241), r.imagePaths
-            ));
-        }
+        JPanel filterInputs = new JPanel(new GridLayout(1, 3, 14, 0));
+        filterInputs.setOpaque(false);
 
-        int remainder = rooms.size() % 3;
-        if (remainder != 0) {
-            int emptySlots = 3 - remainder;
-            for (int i = 0; i < emptySlots; i++) {
-                JPanel placeholder = new JPanel();
-                placeholder.setOpaque(false);
-                gridPanel.add(placeholder);
+        // Check-in input
+        JTextField txtFilterCheckIn = createStyledTextField();
+        txtFilterCheckIn.setText(searchCheckIn.toString());
+        JPanel pnlIn = createSearchFieldGroup("📅 CHECK-IN (YYYY-MM-DD)", txtFilterCheckIn);
+
+        // Check-out input
+        JTextField txtFilterCheckOut = createStyledTextField();
+        txtFilterCheckOut.setText(searchCheckOut.toString());
+        JPanel pnlOut = createSearchFieldGroup("📅 CHECK-OUT (YYYY-MM-DD)", txtFilterCheckOut);
+
+        // Person / Guest chooser
+        JComboBox<String> cmbGuests = new JComboBox<>(new String[]{
+                "1 Adult (Solo Stay)",
+                "2 Adults (Couple / Twin)",
+                "3 Guests (Family Suite)",
+                "4+ Guests (Executive / VIP)"
+        });
+        cmbGuests.setSelectedIndex(1); // Default to 2 adults
+        styleComboBox(cmbGuests);
+        JPanel pnlGuests = createSearchFieldGroup("👥 GUESTS & TRAVELERS", cmbGuests);
+
+        filterInputs.add(pnlIn);
+        filterInputs.add(pnlOut);
+        filterInputs.add(pnlGuests);
+
+        // Search Action Button
+        JButton btnApplyFilter = new JButton("🔍 Find Available Suites") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                if (getModel().isArmed()) {
+                    g2.setPaint(new GradientPaint(0, 0, new Color(79, 70, 229), getWidth(), 0, new Color(67, 56, 202)));
+                } else if (getModel().isRollover()) {
+                    g2.setPaint(new GradientPaint(0, 0, new Color(129, 140, 248), getWidth(), 0, new Color(99, 102, 241)));
+                } else {
+                    g2.setPaint(new GradientPaint(0, 0, new Color(99, 102, 241), getWidth(), 0, new Color(139, 92, 246)));
+                }
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                g2.setColor(Color.WHITE);
+                g2.setFont(getFont());
+                FontMetrics fm = g2.getFontMetrics();
+                int tx = (getWidth() - fm.stringWidth(getText())) / 2;
+                int ty = ((getHeight() - fm.getHeight()) / 2) + fm.getAscent();
+                g2.drawString(getText(), tx, ty);
+                g2.dispose();
             }
-        }
+        };
+        btnApplyFilter.setFont(new Font("Century Gothic", Font.BOLD, 12));
+        btnApplyFilter.setForeground(Color.WHITE);
+        btnApplyFilter.setPreferredSize(new Dimension(190, 38));
+        btnApplyFilter.setFocusPainted(false);
+        btnApplyFilter.setBorderPainted(false);
+        btnApplyFilter.setContentAreaFilled(false);
+        btnApplyFilter.setOpaque(false);
+        btnApplyFilter.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        JPanel wrapperPanel = new JPanel(new BorderLayout());
-        wrapperPanel.setOpaque(false);
-        wrapperPanel.add(gridPanel, BorderLayout.NORTH);
+        btnApplyFilter.addActionListener(e -> {
+            try {
+                LocalDate inDate = LocalDate.parse(txtFilterCheckIn.getText().trim());
+                LocalDate outDate = LocalDate.parse(txtFilterCheckOut.getText().trim());
 
-        JScrollPane scrollPane = new JScrollPane(wrapperPanel);
+                if (!outDate.isAfter(inDate)) {
+                    JOptionPane.showMessageDialog(this, "Check-out date must be after check-in date.", "Invalid Date Range", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                this.searchCheckIn = inDate;
+                this.searchCheckOut = outDate;
+                this.searchGuestCount = cmbGuests.getSelectedIndex() + 1;
+
+                refreshExploreRoomGrid();
+
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Invalid date format. Please use YYYY-MM-DD format.", "Date Format Error", JOptionPane.WARNING_MESSAGE);
+            }
+        });
+
+        searchBarCard.add(filterInputs, BorderLayout.CENTER);
+        searchBarCard.add(btnApplyFilter, BorderLayout.EAST);
+        topContainer.add(searchBarCard);
+
+        panel.add(topContainer, BorderLayout.NORTH);
+
+        // 2. Room Cards Grid Container
+        roomCardsGridContainer = new JPanel();
+        roomCardsGridContainer.setOpaque(false);
+        roomCardsGridContainer.setLayout(new BoxLayout(roomCardsGridContainer, BoxLayout.Y_AXIS));
+
+        JScrollPane scrollPane = new JScrollPane(roomCardsGridContainer);
         scrollPane.setBorder(null);
         scrollPane.setOpaque(false);
         scrollPane.getViewport().setOpaque(false);
@@ -2035,7 +2118,84 @@ public class Customer_Screen extends JFrame {
         scrollPane.getVerticalScrollBar().setUnitIncrement(18);
 
         panel.add(scrollPane, BorderLayout.CENTER);
+
+        // Load initial availability
+        refreshExploreRoomGrid();
+
         return panel;
+    }
+
+    private JPanel createSearchFieldGroup(String labelText, JComponent input) {
+        JPanel group = new JPanel(new BorderLayout(0, 2));
+        group.setOpaque(false);
+
+        JLabel lbl = new JLabel(labelText);
+        lbl.setFont(new Font("Century Gothic", Font.BOLD, 9));
+        lbl.setForeground(new Color(100, 116, 139));
+
+        input.setPreferredSize(new Dimension(input.getPreferredSize().width, 32));
+
+        group.add(lbl, BorderLayout.NORTH);
+        group.add(input, BorderLayout.CENTER);
+        return group;
+    }
+
+    public void refreshExploreRoomGrid() {
+        if (roomCardsGridContainer == null) return;
+        roomCardsGridContainer.removeAll();
+
+        List<CustomerDBA.RoomCardData> rooms = CustomerDBA.getAvailableRoomCardsForDates(searchCheckIn, searchCheckOut);
+
+        if (rooms.isEmpty()) {
+            JPanel emptyPanel = new JPanel();
+            emptyPanel.setLayout(new BoxLayout(emptyPanel, BoxLayout.Y_AXIS));
+            emptyPanel.setOpaque(false);
+            emptyPanel.setBorder(new EmptyBorder(60, 20, 60, 20));
+
+            JLabel lblEmpty = new JLabel("🚫 No Suites Available for " + searchCheckIn + " to " + searchCheckOut);
+            lblEmpty.setFont(new Font("Century Gothic", Font.BOLD, 15));
+            lblEmpty.setForeground(new Color(71, 85, 105));
+            lblEmpty.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+            JLabel lblSub = new JLabel("All suites in our inventory are booked during these dates. Please choose alternative dates.");
+            lblSub.setFont(new Font("Century Gothic", Font.PLAIN, 12));
+            lblSub.setForeground(new Color(148, 163, 184));
+            lblSub.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+            emptyPanel.add(lblEmpty);
+            emptyPanel.add(Box.createRigidArea(new Dimension(0, 6)));
+            emptyPanel.add(lblSub);
+
+            roomCardsGridContainer.add(emptyPanel);
+        } else {
+            int cols = 3;
+            int rows = Math.max(1, (int) Math.ceil(rooms.size() / 3.0));
+
+            JPanel gridPanel = new JPanel(new GridLayout(rows, cols, 18, 18));
+            gridPanel.setOpaque(false);
+            gridPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+            for (CustomerDBA.RoomCardData r : rooms) {
+                gridPanel.add(createRoomCard(
+                        r.roomNo, r.title, r.floor, r.price, "Available for Dates", r.features, new Color(16, 185, 129), r.imagePaths
+                ));
+            }
+
+            int remainder = rooms.size() % 3;
+            if (remainder != 0) {
+                int emptySlots = 3 - remainder;
+                for (int i = 0; i < emptySlots; i++) {
+                    JPanel placeholder = new JPanel();
+                    placeholder.setOpaque(false);
+                    gridPanel.add(placeholder);
+                }
+            }
+
+            roomCardsGridContainer.add(gridPanel);
+        }
+
+        roomCardsGridContainer.revalidate();
+        roomCardsGridContainer.repaint();
     }
 
     private JPanel createRoomCard(String roomNo, String title, String floor, String price, String tierBadge, String features, Color accentColor, String[] imagePaths) {
@@ -2161,7 +2321,7 @@ public class Customer_Screen extends JFrame {
 
     private void openBookingModal(String roomNo, String roomTitle, String roomPrice) {
         JDialog dialog = new JDialog(this, "Reserve Your Stay", true);
-        dialog.setSize(440, 500);
+        dialog.setSize(440, 520);
         dialog.setLocationRelativeTo(this);
         dialog.setLayout(new BorderLayout());
         dialog.setResizable(false);
@@ -2200,11 +2360,12 @@ public class Customer_Screen extends JFrame {
         txtPhone.setText(currentGuest.phone);
         txtPhone.setEditable(false);
 
+        // Uses the date filter values selected by the user
         JTextField txtCheckIn = createStyledTextField();
-        txtCheckIn.setText(LocalDate.now().toString());
+        txtCheckIn.setText(this.searchCheckIn.toString());
 
         JTextField txtCheckOut = createStyledTextField();
-        txtCheckOut.setText(LocalDate.now().plusDays(2).toString());
+        txtCheckOut.setText(this.searchCheckOut.toString());
 
         JComboBox<String> cmbTier = new JComboBox<>(new String[]{
                 "Staycation (Overnight)", "Daycation (Day Pass)", "Night Stay (Transit)"
@@ -2289,6 +2450,7 @@ public class Customer_Screen extends JFrame {
                     JOptionPane.showMessageDialog(this, "Success! Reservation confirmed for " + roomNo + " (" + roomTitle + ").", "Booking Confirmed", JOptionPane.INFORMATION_MESSAGE);
                     refreshCustomerSession();
                     refreshMyReservationsTable();
+                    refreshExploreRoomGrid(); // Refresh grid so the newly booked room disappears from the date view
                 } else {
                     JOptionPane.showMessageDialog(this, "Failed to submit booking into the database.", "Booking Error", JOptionPane.ERROR_MESSAGE);
                 }
