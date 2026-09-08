@@ -26,7 +26,7 @@ public class UserManagementUI extends JPanel {
     private JComboBox<String> cmbRole, cmbStatus;
     private JButton btnSave, btnClear, btnDeleteForm, btnDeleteTable;
 
-    private JLabel lblTotalStaff, lblAdminCount, lblActiveCount, lblRestrictedCount;
+    private JLabel lblTotalStaff, lblAdminCount, lblHkCrewCount, lblRestrictedCount;
     private String selectedUserId = null;
 
     public UserManagementUI() {
@@ -48,19 +48,19 @@ public class UserManagementUI extends JPanel {
         statsRow.setPreferredSize(new Dimension(1400, 120));
         statsRow.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        UserStatCard cardTotal = new UserStatCard("👥 Total Staff Accounts", "0 Users", "System-Wide", new Color(99, 102, 241), new Color(129, 140, 248));
-        UserStatCard cardAdmin = new UserStatCard("🛡️ System Admins", "0 Accounts", "Full Access Rights", new Color(168, 85, 247), new Color(192, 132, 252));
-        UserStatCard cardActive = new UserStatCard("🟢 Active Today", "0 Online", "Logged In Staff", new Color(16, 185, 129), new Color(52, 211, 153));
-        UserStatCard cardRestricted = new UserStatCard("🔒 Restricted / Disabled", "0 Accounts", "Access Suspended", new Color(245, 158, 11), new Color(251, 191, 36));
+        UserStatCard cardTotal = new UserStatCard("👥 Total Directory", "0 Personnel", "System Records", new Color(99, 102, 241), new Color(129, 140, 248));
+        UserStatCard cardAdmin = new UserStatCard("🛡️ System Administrators", "0 Portal Users", "Full Portal Access", new Color(168, 85, 247), new Color(192, 132, 252));
+        UserStatCard cardHk = new UserStatCard("🧹 Housekeeping Crew", "0 Staff", "Dispatch Roster Only", new Color(16, 185, 129), new Color(52, 211, 153));
+        UserStatCard cardRestricted = new UserStatCard("🔒 Inactive / Suspended", "0 Records", "Disabled Entries", new Color(245, 158, 11), new Color(251, 191, 36));
 
         lblTotalStaff = cardTotal.getCountLabel();
         lblAdminCount = cardAdmin.getCountLabel();
-        lblActiveCount = cardActive.getCountLabel();
+        lblHkCrewCount = cardHk.getCountLabel();
         lblRestrictedCount = cardRestricted.getCountLabel();
 
         statsRow.add(cardTotal);
         statsRow.add(cardAdmin);
-        statsRow.add(cardActive);
+        statsRow.add(cardHk);
         statsRow.add(cardRestricted);
 
         JPanel workspaceRow = new JPanel(new BorderLayout(18, 0));
@@ -76,7 +76,7 @@ public class UserManagementUI extends JPanel {
                 new EmptyBorder(16, 18, 16, 18)
         ));
 
-        JLabel formTitle = new JLabel("Create / Edit Staff Account");
+        JLabel formTitle = new JLabel("Personnel & Access Management");
         formTitle.setFont(new Font("Century Gothic", Font.BOLD, 15));
         formTitle.setForeground(new Color(30, 41, 59));
         formTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -96,17 +96,26 @@ public class UserManagementUI extends JPanel {
                 new EmptyBorder(5, 10, 5, 10)
         ));
 
-        cmbRole = new JComboBox<>(new String[]{"ADMIN", "RECEPTIONIST", "HOUSEKEEPING", "BILLING_MANAGER", "STAFF"});
+        cmbRole = new JComboBox<>(new String[]{"ADMIN", "HOUSEKEEPING"});
         styleComboBox(cmbRole);
+
+        cmbRole.addActionListener(e -> {
+            String role = (String) cmbRole.getSelectedItem();
+            if ("HOUSEKEEPING".equals(role)) {
+                txtPassword.setToolTipText("Password optional for Housekeeping (Field Staff)");
+            } else {
+                txtPassword.setToolTipText("Password required for Admin login portal");
+            }
+        });
 
         cmbStatus = new JComboBox<>(new String[]{"ACTIVE", "INACTIVE", "SUSPENDED"});
         styleComboBox(cmbStatus);
 
         addFormGroup(formCard, "Full Name", txtFullName);
-        addFormGroup(formCard, "System Username", txtUsername);
-        addFormGroup(formCard, "Work Email", txtEmail);
+        addFormGroup(formCard, "Staff Username / ID", txtUsername);
+        addFormGroup(formCard, "Email Address", txtEmail);
         addFormGroup(formCard, "Contact Number", txtPhone);
-        addFormGroup(formCard, "Account Password", txtPassword);
+        addFormGroup(formCard, "Portal Password (Admin Only)", txtPassword);
 
         JPanel roleStatusRow = new JPanel(new GridLayout(1, 2, 10, 0));
         roleStatusRow.setOpaque(false);
@@ -115,7 +124,7 @@ public class UserManagementUI extends JPanel {
 
         JPanel roleGroup = new JPanel(new BorderLayout(0, 4));
         roleGroup.setOpaque(false);
-        JLabel lblR = new JLabel("Assign Role");
+        JLabel lblR = new JLabel("Role Access");
         lblR.setFont(new Font("Century Gothic", Font.BOLD, 11));
         lblR.setForeground(new Color(100, 116, 139));
         roleGroup.add(lblR, BorderLayout.NORTH);
@@ -123,7 +132,7 @@ public class UserManagementUI extends JPanel {
 
         JPanel statusGroup = new JPanel(new BorderLayout(0, 4));
         statusGroup.setOpaque(false);
-        JLabel lblS = new JLabel("Account Status");
+        JLabel lblS = new JLabel("Status");
         lblS.setFont(new Font("Century Gothic", Font.BOLD, 11));
         lblS.setForeground(new Color(100, 116, 139));
         statusGroup.add(lblS, BorderLayout.NORTH);
@@ -159,7 +168,7 @@ public class UserManagementUI extends JPanel {
         btnDeleteForm.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnDeleteForm.addActionListener(e -> handleDeleteUser(selectedUserId));
 
-        btnSave = new JButton("Save Staff");
+        btnSave = new JButton("Save Record");
         btnSave.setFont(new Font("Century Gothic", Font.BOLD, 11));
         btnSave.setBackground(new Color(99, 102, 241));
         btnSave.setForeground(Color.WHITE);
@@ -185,14 +194,14 @@ public class UserManagementUI extends JPanel {
         headerRow.setOpaque(false);
         headerRow.setBorder(new EmptyBorder(0, 0, 12, 0));
 
-        JLabel tableTitle = new JLabel("System Staff Directory & Access Level");
+        JLabel tableTitle = new JLabel("Staff Management");
         tableTitle.setFont(new Font("Century Gothic", Font.BOLD, 15));
         tableTitle.setForeground(new Color(30, 41, 59));
 
         JPanel tableControls = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         tableControls.setOpaque(false);
 
-        btnDeleteTable = new JButton("🗑️ Delete User");
+        btnDeleteTable = new JButton("🗑️ Delete Personnel");
         btnDeleteTable.setFont(new Font("Segoe UI Emoji", Font.BOLD, 11));
         btnDeleteTable.setBackground(new Color(254, 242, 242));
         btnDeleteTable.setForeground(new Color(239, 68, 68));
@@ -205,7 +214,7 @@ public class UserManagementUI extends JPanel {
         btnDeleteTable.addActionListener(e -> {
             int viewRow = userTable.getSelectedRow();
             if (viewRow == -1) {
-                JOptionPane.showMessageDialog(this, "Please select a user from the table first.", "Selection Required", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Please select an entry from the directory first.", "Selection Required", JOptionPane.WARNING_MESSAGE);
                 return;
             }
             int modelRow = userTable.convertRowIndexToModel(viewRow);
@@ -215,12 +224,12 @@ public class UserManagementUI extends JPanel {
 
         JTextField searchBox = new JTextField();
         searchBox.setFont(new Font("Century Gothic", Font.PLAIN, 12));
-        searchBox.setPreferredSize(new Dimension(180, 28));
+        searchBox.setPreferredSize(new Dimension(190, 28));
         searchBox.setBorder(BorderFactory.createCompoundBorder(
                 new LineBorder(new Color(226, 232, 240), 1, true),
                 new EmptyBorder(4, 8, 4, 8)
         ));
-        searchBox.setToolTipText("Search by Name, Username, Role, or Email");
+        searchBox.setToolTipText("Search by Name, Username, or Role");
 
         searchBox.getDocument().addDocumentListener(new DocumentListener() {
             @Override
@@ -237,7 +246,7 @@ public class UserManagementUI extends JPanel {
         headerRow.add(tableTitle, BorderLayout.WEST);
         headerRow.add(tableControls, BorderLayout.EAST);
 
-        String[] cols = {"User ID", "Full Name", "Username", "Email", "Role", "Last Login", "Status", "Phone"};
+        String[] cols = {"User ID", "Full Name", "Username / Code", "Email", "System Role", "Last Login", "Status", "Phone"};
         tableModel = new DefaultTableModel(new Object[][]{}, cols) {
             @Override
             public boolean isCellEditable(int r, int c) { return false; }
@@ -261,6 +270,7 @@ public class UserManagementUI extends JPanel {
         th.setForeground(new Color(100, 116, 139));
         th.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(226, 232, 240)));
 
+        userTable.getColumnModel().getColumn(4).setCellRenderer(new RoleBadgeRenderer());
         userTable.getColumnModel().getColumn(6).setCellRenderer(new UserStatusBadgeRenderer());
 
         userTable.getSelectionModel().addListSelectionListener(e -> {
@@ -297,8 +307,9 @@ public class UserManagementUI extends JPanel {
             return;
         }
 
-        String sql = "SELECT user_id, full_name, username, email, role, last_login, status, phone FROM Users ORDER BY created_at DESC";
-        int total = 0, admins = 0, active = 0, restricted = 0;
+        String sql = "SELECT user_id, full_name, username, email, role, last_login, status, phone " +
+                "FROM Users WHERE role IN ('ADMIN', 'HOUSEKEEPING') ORDER BY role ASC, full_name ASC";
+        int total = 0, admins = 0, housekeeping = 0, restricted = 0;
 
         try (PreparedStatement pst = conn.prepareStatement(sql);
              ResultSet rs = pst.executeQuery()) {
@@ -310,7 +321,7 @@ public class UserManagementUI extends JPanel {
                 String email = rs.getString("email");
                 String role = rs.getString("role");
                 Timestamp lastLogin = rs.getTimestamp("last_login");
-                String lastLoginStr = (lastLogin != null) ? lastLogin.toString().substring(0, 16) : "Never";
+                String lastLoginStr = (lastLogin != null) ? lastLogin.toString().substring(0, 16) : "Field Staff (No Portal)";
                 String status = rs.getString("status");
                 String phone = rs.getString("phone") != null ? rs.getString("phone") : "";
 
@@ -318,18 +329,18 @@ public class UserManagementUI extends JPanel {
 
                 total++;
                 if ("ADMIN".equalsIgnoreCase(role)) admins++;
-                if ("ACTIVE".equalsIgnoreCase(status)) active++;
+                if ("HOUSEKEEPING".equalsIgnoreCase(role)) housekeeping++;
                 if ("INACTIVE".equalsIgnoreCase(status) || "SUSPENDED".equalsIgnoreCase(status)) restricted++;
             }
 
-            lblTotalStaff.setText(total + " Users");
-            lblAdminCount.setText(admins + " Accounts");
-            lblActiveCount.setText(active + " Online");
-            lblRestrictedCount.setText(restricted + " Accounts");
+            lblTotalStaff.setText(total + " Personnel");
+            lblAdminCount.setText(admins + " Portal Admins");
+            lblHkCrewCount.setText(housekeeping + " Cleaners");
+            lblRestrictedCount.setText(restricted + " Inactive");
 
         } catch (SQLException e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Failed to load users: " + e.getMessage(), "Query Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Failed to load directory: " + e.getMessage(), "Query Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -346,11 +357,15 @@ public class UserManagementUI extends JPanel {
         txtFullName.setText((String) tableModel.getValueAt(modelRow, 1));
         txtUsername.setText((String) tableModel.getValueAt(modelRow, 2));
         txtEmail.setText((String) tableModel.getValueAt(modelRow, 3));
-        cmbRole.setSelectedItem(tableModel.getValueAt(modelRow, 4));
+
+        String role = (String) tableModel.getValueAt(modelRow, 4);
+        if ("ADMIN".equalsIgnoreCase(role)) cmbRole.setSelectedItem("ADMIN");
+        else cmbRole.setSelectedItem("HOUSEKEEPING");
+
         cmbStatus.setSelectedItem(tableModel.getValueAt(modelRow, 6));
         txtPhone.setText((String) tableModel.getValueAt(modelRow, 7));
 
-        btnSave.setText("Update Account");
+        btnSave.setText("Update Record");
         btnSave.setBackground(new Color(16, 185, 129));
         btnDeleteForm.setEnabled(true);
     }
@@ -401,7 +416,7 @@ public class UserManagementUI extends JPanel {
         cmbStatus.setSelectedIndex(0);
         selectedUserId = null;
 
-        btnSave.setText("Save Staff Account");
+        btnSave.setText("Save Record");
         btnSave.setBackground(new Color(99, 102, 241));
         btnDeleteForm.setEnabled(false);
         userTable.clearSelection();
@@ -416,21 +431,33 @@ public class UserManagementUI extends JPanel {
         String role = (String) cmbRole.getSelectedItem();
         String status = (String) cmbStatus.getSelectedItem();
 
-        if (name.isEmpty() || username.isEmpty() || email.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Please fill in Full Name, Username, and Email.", "Validation Error", JOptionPane.WARNING_MESSAGE);
+        if (name.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please enter the Full Name.", "Validation Error", JOptionPane.WARNING_MESSAGE);
             return;
+        }
+
+        if (username.isEmpty()) {
+            username = name.toLowerCase().replaceAll("[^a-z0-9]", "") + (int)(Math.random() * 90 + 10);
+        }
+
+        if (email.isEmpty()) {
+            email = username + "@grandhorizon.local";
+        }
+
+        boolean isUpdate = (selectedUserId != null);
+
+        if (!isUpdate && "ADMIN".equalsIgnoreCase(role) && password.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Password is required for Administrator accounts to log into the portal.", "Validation Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        if (password.isEmpty() && !isUpdate) {
+            password = "NOPORTALACCESS_" + UUID.randomUUID().toString().substring(0, 6);
         }
 
         Connection conn = DBConnection.getConnection();
         if (conn == null) {
             JOptionPane.showMessageDialog(this, "Database connection not available.", "Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        boolean isUpdate = (selectedUserId != null);
-
-        if (!isUpdate && password.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Password is required for new accounts.", "Validation Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
@@ -458,7 +485,7 @@ public class UserManagementUI extends JPanel {
                     }
                     pst.executeUpdate();
                 }
-                JOptionPane.showMessageDialog(this, "Staff user '" + username + "' updated successfully!");
+                JOptionPane.showMessageDialog(this, "Personnel '" + name + "' updated successfully!");
             } else {
                 String newUserId = "USR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
                 String insertSql = "INSERT INTO Users (user_id, full_name, username, email, password_hash, phone, role, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
@@ -474,7 +501,7 @@ public class UserManagementUI extends JPanel {
                     pst.setString(8, status);
                     pst.executeUpdate();
                 }
-                JOptionPane.showMessageDialog(this, "Staff account created successfully for '" + username + "'!");
+                JOptionPane.showMessageDialog(this, "Successfully added '" + name + "' to " + role + " directory!");
             }
 
             loadUsersFromDatabase();
@@ -488,7 +515,7 @@ public class UserManagementUI extends JPanel {
 
     private void handleDeleteUser(String userId) {
         if (userId == null || userId.trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Please select an account to delete.", "No User Selected", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Please select a staff member to delete.", "No Record Selected", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
@@ -500,8 +527,8 @@ public class UserManagementUI extends JPanel {
 
         int confirm = JOptionPane.showConfirmDialog(
                 this,
-                "Are you sure you want to permanently delete user [" + userId + "]?\nAll associated staff assignments will be unlinked.",
-                "Confirm Account Deletion",
+                "Delete staff member [" + userId + "]?\nAny active room cleaning tasks assigned to this cleaner will become unassigned.",
+                "Confirm Personnel Deletion",
                 JOptionPane.YES_NO_OPTION,
                 JOptionPane.WARNING_MESSAGE
         );
@@ -511,21 +538,10 @@ public class UserManagementUI extends JPanel {
         try {
             conn.setAutoCommit(false);
 
-            String unlinkGuestSql = "UPDATE Guests SET user_id = NULL WHERE user_id = ?";
-            try (PreparedStatement pstUnlinkGuest = conn.prepareStatement(unlinkGuestSql)) {
-                pstUnlinkGuest.setString(1, userId);
-                pstUnlinkGuest.executeUpdate();
-            }
-
             String unlinkHousekeepingSql = "UPDATE HousekeepingRequests SET assigned_staff_id = NULL WHERE assigned_staff_id = ?";
             try (PreparedStatement pstHk = conn.prepareStatement(unlinkHousekeepingSql)) {
                 pstHk.setString(1, userId);
                 pstHk.executeUpdate();
-            } catch (SQLException ignored) {
-                try (PreparedStatement pstHkAlt = conn.prepareStatement("UPDATE HousekeepingRequests SET assigned_staff = NULL WHERE assigned_staff = ?")) {
-                    pstHkAlt.setString(1, userId);
-                    pstHkAlt.executeUpdate();
-                } catch (SQLException ignored2) {}
             }
 
             String deleteUserSql = "DELETE FROM Users WHERE user_id = ?";
@@ -535,7 +551,7 @@ public class UserManagementUI extends JPanel {
 
                 if (rows > 0) {
                     conn.commit();
-                    JOptionPane.showMessageDialog(this, "Account [" + userId + "] deleted successfully.", "User Deleted", JOptionPane.INFORMATION_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "Personnel record removed.", "Deleted", JOptionPane.INFORMATION_MESSAGE);
                     loadUsersFromDatabase();
                     clearForm();
                 } else {
@@ -549,6 +565,48 @@ public class UserManagementUI extends JPanel {
             JOptionPane.showMessageDialog(this, "Database Error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         } finally {
             try { conn.setAutoCommit(true); } catch (SQLException ignored) {}
+        }
+    }
+
+    static class RoleBadgeRenderer extends DefaultTableCellRenderer {
+        public RoleBadgeRenderer() {
+            setHorizontalAlignment(SwingConstants.CENTER);
+            setFont(new Font("Century Gothic", Font.BOLD, 10));
+        }
+
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int col) {
+            super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, col);
+            String role = (value != null) ? value.toString() : "";
+            setText(role);
+            setOpaque(false);
+            return this;
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            String role = getText();
+            Color bg = "ADMIN".equalsIgnoreCase(role) ? new Color(168, 85, 247) : new Color(16, 185, 129);
+
+            int padX = 14;
+            int badgeW = getWidth() - (padX * 2);
+            int badgeH = getHeight() - 10;
+            int badgeY = 5;
+
+            g2.setColor(bg);
+            g2.fillRoundRect(padX, badgeY, badgeW, badgeH, 6, 6);
+
+            g2.setColor(Color.WHITE);
+            g2.setFont(getFont());
+            FontMetrics fm = g2.getFontMetrics();
+            int textX = (getWidth() - fm.stringWidth(role)) / 2;
+            int textY = ((getHeight() - fm.getHeight()) / 2) + fm.getAscent();
+            g2.drawString(role, textX, textY);
+
+            g2.dispose();
         }
     }
 
@@ -571,7 +629,7 @@ public class UserManagementUI extends JPanel {
             lblTitle.setForeground(new Color(255, 255, 255, 230));
 
             lblCount = new JLabel(count);
-            lblCount.setFont(new Font("Century Gothic", Font.BOLD, 20));
+            lblCount.setFont(new Font("Century Gothic", Font.BOLD, 19));
             lblCount.setForeground(Color.WHITE);
 
             JLabel lblSub = new JLabel(subtext);

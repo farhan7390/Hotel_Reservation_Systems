@@ -146,33 +146,125 @@ public class RateAndPricingUI extends JPanel {
         formCard.add(chkTaxInclusive);
         formCard.add(Box.createRigidArea(new Dimension(0, 14)));
 
-        JPanel actionBtns = new JPanel(new GridLayout(1, 2, 10, 0));
-        actionBtns.setOpaque(false);
-        actionBtns.setAlignmentX(Component.LEFT_ALIGNMENT);
-        actionBtns.setMaximumSize(new Dimension(1400, 36));
+        JPanel actionRow = new JPanel(new GridLayout(1, 3, 8, 0));
+        actionRow.setOpaque(false);
+        actionRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
+        actionRow.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         btnReset = new JButton("Reset");
-        btnReset.setFont(new Font("Century Gothic", Font.BOLD, 11));
+        btnReset.setFont(new Font("Century Gothic", Font.BOLD, 12));
         btnReset.setBackground(new Color(241, 245, 249));
         btnReset.setForeground(new Color(71, 85, 105));
         btnReset.setFocusPainted(false);
-        btnReset.setBorderPainted(false);
         btnReset.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnReset.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(new Color(226, 232, 240), 1, true),
+                new EmptyBorder(6, 10, 6, 10)
+        ));
         btnReset.addActionListener(e -> resetForm());
 
-        btnApply = new JButton("Apply Tariff Rule");
-        btnApply.setFont(new Font("Century Gothic", Font.BOLD, 11));
-        btnApply.setBackground(new Color(99, 102, 241));
+        JButton btnDelete = new JButton("Delete") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                if (getModel().isArmed()) {
+                    g2.setColor(new Color(185, 28, 28));
+                } else if (getModel().isRollover()) {
+                    g2.setColor(new Color(220, 38, 38));
+                } else {
+                    g2.setColor(new Color(239, 68, 68));
+                }
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+
+                g2.setColor(Color.WHITE);
+                g2.setFont(getFont());
+                FontMetrics fm = g2.getFontMetrics();
+                int tx = (getWidth() - fm.stringWidth(getText())) / 2;
+                int ty = ((getHeight() - fm.getHeight()) / 2) + fm.getAscent();
+                g2.drawString(getText(), tx, ty);
+                g2.dispose();
+            }
+        };
+        btnDelete.setFont(new Font("Century Gothic", Font.BOLD, 12));
+        btnDelete.setForeground(Color.WHITE);
+        btnDelete.setFocusPainted(false);
+        btnDelete.setBorderPainted(false);
+        btnDelete.setContentAreaFilled(false);
+        btnDelete.setOpaque(false);
+        btnDelete.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        btnDelete.addActionListener(e -> {
+            int selectedRow = rateTable.getSelectedRow();
+            if (selectedRow == -1) {
+                JOptionPane.showMessageDialog(this,
+                        "Please select a tariff rule from the table to delete.",
+                        "No Selection", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            int modelRow = rateTable.convertRowIndexToModel(selectedRow);
+            int ruleId = (Integer) tableModel.getValueAt(modelRow, 0);
+            String category = tableModel.getValueAt(modelRow, 1).toString();
+            String tier = tableModel.getValueAt(modelRow, 2).toString();
+
+            int confirm = JOptionPane.showConfirmDialog(this,
+                    "Are you sure you want to permanently delete the rule for:\n\n" +
+                            "• Category: " + category + "\n" +
+                            "• Tier Model: " + tier + "\n\nThis cannot be undone.",
+                    "Confirm Rule Deletion",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE);
+
+            if (confirm == JOptionPane.YES_OPTION) {
+                boolean ok = RateAndPricingDBA.deleteTariffRule(ruleId);
+                if (ok) {
+                    JOptionPane.showMessageDialog(this, "Tariff rule deleted successfully.", "Rule Removed", JOptionPane.INFORMATION_MESSAGE);
+                    loadTableData(); // Reloads table and KPI cards
+                    resetForm();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Failed to delete tariff rule from database.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
+        btnApply = new JButton("Update Rule") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                if (getModel().isArmed()) {
+                    g2.setColor(new Color(5, 150, 105));
+                } else if (getModel().isRollover()) {
+                    g2.setColor(new Color(16, 185, 129));
+                } else {
+                    g2.setColor(new Color(13, 148, 136));
+                }
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+
+                g2.setColor(Color.WHITE);
+                g2.setFont(getFont());
+                FontMetrics fm = g2.getFontMetrics();
+                int tx = (getWidth() - fm.stringWidth(getText())) / 2;
+                int ty = ((getHeight() - fm.getHeight()) / 2) + fm.getAscent();
+                g2.drawString(getText(), tx, ty);
+                g2.dispose();
+            }
+        };
+        btnApply.setFont(new Font("Century Gothic", Font.BOLD, 12));
         btnApply.setForeground(Color.WHITE);
         btnApply.setFocusPainted(false);
         btnApply.setBorderPainted(false);
+        btnApply.setContentAreaFilled(false);
+        btnApply.setOpaque(false);
         btnApply.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnApply.addActionListener(e -> handleSaveRateRule());
 
-        actionBtns.add(btnReset);
-        actionBtns.add(btnApply);
+        actionRow.add(btnReset);
+        actionRow.add(btnDelete);
+        actionRow.add(btnApply);
 
-        formCard.add(actionBtns);
+        formCard.add(actionRow);
 
         JPanel tableCard = new JPanel(new BorderLayout());
         tableCard.setBackground(Color.WHITE);

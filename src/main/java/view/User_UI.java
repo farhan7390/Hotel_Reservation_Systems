@@ -1,278 +1,5 @@
-/*
 package view;
 
-import model.UserDAO;
-
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import javax.swing.border.LineBorder;
-import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.net.URL;
-
-public class User_UI extends JFrame {
-    private static final Color LEFT_BG = new Color(15, 23, 42);
-    private static final Color TEXT_GRAY  = new Color(100, 100, 100);
-    private static final Font headingFont = new Font("Century Gothic", Font.BOLD, 22);
-
-    private static String uname = "Guest";
-    private static String userRole = "STAFF";
-
-    public User_UI() {
-        setLayout(new GridLayout(1, 2));
-        setTitle("Hotel Reservation Systems - Login");
-        setSize(850, 550);
-        setLocationRelativeTo(null);
-        setResizable(false);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
-        util.AppIcon.setFrameIcon(this, "/images/favicon1.png");
-
-        add(leftBanner());
-        add(rightBanner());
-    }
-
-    public JPanel leftBanner() {
-        JPanel leftPanel = new JPanel(new GridBagLayout()) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-                GradientPaint gp = new GradientPaint(
-                        0, 0, new Color(15, 23, 42),
-                        0, getHeight(), new Color(31, 47, 83)
-                );
-                g2.setPaint(gp);
-                g2.fillRect(0, 0, getWidth(), getHeight());
-            }
-        };
-        leftPanel.setBackground(LEFT_BG);
-        leftPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
-
-        JPanel centreBox = new JPanel();
-        centreBox.setOpaque(false);
-        centreBox.setLayout(new BoxLayout(centreBox, BoxLayout.Y_AXIS));
-
-        URL imgUrl = getClass().getResource("/resources/images/logoPNG.png");
-        if (imgUrl == null) {
-            imgUrl = getClass().getResource("/images/logoPNG.png");
-        }
-
-        JLabel logoLabel;
-        if (imgUrl != null) {
-            ImageIcon rawIcon = new ImageIcon(imgUrl);
-            Image scaledImg = rawIcon.getImage().getScaledInstance(180, 130, Image.SCALE_SMOOTH);
-            logoLabel = new JLabel(new ImageIcon(scaledImg));
-        } else {
-            logoLabel = new JLabel("<html><center>[ Logo ]</center></html>", SwingConstants.CENTER);
-            logoLabel.setForeground(Color.WHITE);
-        }
-        logoLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        JLabel lblTitle = new JLabel("<html><center>Hotel Reservation<br>Systems</center></html>", SwingConstants.CENTER);
-        lblTitle.setFont(new Font("Century Gothic", Font.BOLD, 30));
-        lblTitle.setForeground(Color.WHITE);
-        lblTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        centreBox.add(logoLabel);
-        centreBox.add(Box.createRigidArea(new Dimension(0, 5)));
-        centreBox.add(lblTitle);
-
-        leftPanel.add(centreBox);
-        return leftPanel;
-    }
-
-    private JTabbedPane rightBanner() {
-        JTabbedPane tabbedPane = new JTabbedPane();
-        tabbedPane.setBackground(LEFT_BG);
-        tabbedPane.setFont(new Font("Century Gothic", Font.BOLD, 15));
-
-        tabbedPane.addTab("Customer Login", createLoginForm("Customer Login Here", true));
-        tabbedPane.addTab("Staff Login", createLoginForm("Staff / Admin Login Here", false));
-
-        return tabbedPane;
-    }
-
-    private JPanel createLoginForm(String titleText, boolean isCustomer) {
-        JPanel formPanel = new JPanel();
-        formPanel.setBackground(Color.WHITE);
-        formPanel.setLayout(new BoxLayout(formPanel, BoxLayout.Y_AXIS));
-        formPanel.setBorder(new EmptyBorder(30, 45, 30, 45));
-
-        JLabel lblFormTitle = new JLabel(titleText);
-        lblFormTitle.setFont(headingFont);
-        lblFormTitle.setForeground(Color.BLACK);
-        lblFormTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JLabel lblUser = new JLabel(isCustomer ? "Email / Phone" : "Username / Email");
-        lblUser.setFont(new Font("Century Gothic", Font.BOLD, 13));
-        lblUser.setForeground(Color.BLACK);
-        lblUser.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JTextField txtUser = createStyledTextField();
-        txtUser.setMaximumSize(new Dimension(1400, 34));
-        txtUser.setFont(new Font("Century Gothic", Font.PLAIN, 13));
-        txtUser.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JLabel lblPass = new JLabel("Password");
-        lblPass.setFont(new Font("Century Gothic", Font.BOLD, 13));
-        lblPass.setForeground(Color.BLACK);
-        lblPass.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JPasswordField txtPass = createStyledPasswordField();
-        txtPass.setMaximumSize(new Dimension(1400, 34));
-        txtPass.setFont(new Font("Century Gothic", Font.PLAIN, 13));
-        txtPass.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JPanel actionBtnRow = new JPanel(new GridLayout(1, 2, 10, 0));
-        actionBtnRow.setOpaque(false);
-        actionBtnRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-        actionBtnRow.setMaximumSize(new Dimension(1400, 38));
-
-        JButton btnLogin = new JButton("Log In");
-        btnLogin.setFont(new Font("Century Gothic", Font.BOLD, 12));
-        btnLogin.setBackground(new Color(99, 102, 241));
-        btnLogin.setForeground(Color.WHITE);
-        btnLogin.setFocusPainted(false);
-        btnLogin.setBorderPainted(false);
-        btnLogin.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnLogin.addActionListener(e -> {
-            String enteredUser = txtUser.getText().trim();
-            String enteredPass = new String(txtPass.getPassword()).trim();
-
-            if (enteredUser.isEmpty() || enteredPass.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Please enter your credentials.", "Input Error", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            if (isCustomer) {
-                boolean valid = UserDAO.validateCustomer(enteredUser, enteredPass);
-                if (valid) {
-                    User_UI.setUname(enteredUser);
-                    User_UI.setUserRole("CUSTOMER");
-                    JOptionPane.showMessageDialog(this, "Customer Login Successful: " + enteredUser);
-                    this.dispose();
-                    SwingUtilities.invokeLater(() -> new Customer_Screen().setVisible(true));
-                } else {
-                    JOptionPane.showMessageDialog(this, "Invalid Customer Email/Phone or Password!", "Login Failed", JOptionPane.ERROR_MESSAGE);
-                }
-            } else {
-                String authenticatedRole = UserDAO.validateAdmin(enteredUser, enteredPass);
-                if (authenticatedRole != null) {
-                    User_UI.setUname(enteredUser);
-                    User_UI.setUserRole(authenticatedRole); // Store role from database
-                    JOptionPane.showMessageDialog(this, "Login Successful! Role: " + authenticatedRole);
-                    this.dispose();
-                    SwingUtilities.invokeLater(() -> new MainAdminFrame().setVisible(true));
-                } else {
-                    JOptionPane.showMessageDialog(this, "Invalid Username or Password!", "Login Failed", JOptionPane.ERROR_MESSAGE);
-                }
-            }
-        });
-
-        JButton btnClear = new JButton("Clear");
-        btnClear.setFont(new Font("Century Gothic", Font.BOLD, 12));
-        btnClear.setBackground(new Color(241, 245, 249));
-        btnClear.setForeground(new Color(71, 85, 105));
-        btnClear.setFocusPainted(false);
-        btnClear.setBorderPainted(false);
-        btnClear.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnClear.addActionListener(e -> {
-            txtUser.setText("");
-            txtPass.setText("");
-        });
-
-        actionBtnRow.add(btnClear);
-        actionBtnRow.add(btnLogin);
-
-        JPanel footerLink = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        footerLink.setOpaque(false);
-        footerLink.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        if (isCustomer) {
-            JLabel registerLabel = new JLabel("<html>New Member? <span style='color:#1877F2; font-weight:bold;'>Register Here</span></html>");
-            registerLabel.setFont(new Font("Century Gothic", Font.PLAIN, 12));
-            registerLabel.setForeground(TEXT_GRAY);
-            registerLabel.setCursor(new Cursor(Cursor.HAND_CURSOR));
-            registerLabel.addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseClicked(MouseEvent e) {
-                    User_UI.this.dispose();
-                    SwingUtilities.invokeLater(() -> new Customer_UI().setVisible(true));
-                }
-            });
-            footerLink.add(registerLabel);
-        }
-
-        formPanel.add(lblFormTitle);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 25)));
-        formPanel.add(lblUser);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 6)));
-        formPanel.add(txtUser);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 15)));
-        formPanel.add(lblPass);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 6)));
-        formPanel.add(txtPass);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 30)));
-        formPanel.add(actionBtnRow);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 18)));
-        formPanel.add(footerLink);
-
-        return formPanel;
-    }
-
-    private JTextField createStyledTextField() {
-        JTextField tf = new JTextField();
-        tf.setFont(new Font("Century Gothic", Font.PLAIN, 12));
-        tf.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(new Color(226, 232, 240), 1, true),
-                new EmptyBorder(5, 10, 5, 10)
-        ));
-        return tf;
-    }
-
-    private JPasswordField createStyledPasswordField() {
-        JPasswordField pf = new JPasswordField();
-        pf.setFont(new Font("Century Gothic", Font.PLAIN, 12));
-        pf.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(new Color(226, 232, 240), 1, true),
-                new EmptyBorder(5, 10, 5, 10)
-        ));
-        return pf;
-    }
-
-    public static void setUname(String username) {
-        uname = username;
-    }
-
-    public static String getUname() {
-        return (uname != null && !uname.trim().isEmpty()) ? uname : "Guest";
-    }
-
-    public static void setUserRole(String role) {
-        userRole = role;
-    }
-
-    public static String getUserRole() {
-        return (userRole != null && !userRole.trim().isEmpty()) ? userRole.toUpperCase() : "STAFF";
-    }
-
-    static void main(String[] args) {
-        try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception ignored) {}
-
-        SwingUtilities.invokeLater(() -> new User_UI().setVisible(true));
-    }
-}
-*/
-
-package view;
-
-import model.CustomerDBA;
-import model.DBConnection;
 import model.UserDAO;
 import util.AppIcon;
 
@@ -283,10 +10,6 @@ import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.awt.geom.RoundRectangle2D;
 import java.net.URL;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 
 public class User_UI extends JFrame {
 
@@ -308,11 +31,15 @@ public class User_UI extends JFrame {
         return currentUserRole;
     }
 
+    public static void setUname(String uname) { currentUsername = uname; }
+    public static void setUserRole(String role) { currentUserRole = role; }
+
     public User_UI() {
         setTitle("Grand Horizon Suites - Guest & Staff Portal");
-        setSize(960, 580);
-        setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+        setExtendedState(MAXIMIZED_BOTH);
+        setMinimumSize(new Dimension(1024, 640));
         setResizable(false);
         setLayout(new GridLayout(1, 2));
 
@@ -329,62 +56,60 @@ public class User_UI extends JFrame {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
 
-                // Ultra-smooth rendering & interpolation
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
                 g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 
-                // Deep Midnight Gradient Background
-                GradientPaint gp = new GradientPaint(
-                        0, 0, new Color(15, 23, 42),
-                        getWidth(), getHeight(), new Color(30, 41, 59)
-                );
-                g2.setPaint(gp);
-                g2.fillRect(0, 0, getWidth(), getHeight());
-
-                // Ambient Radial Glow Circles
-                g2.setColor(new Color(99, 102, 241, 35));
-                g2.fillOval(-60, -60, 280, 280);
-
-                g2.setColor(new Color(168, 85, 247, 28));
-                g2.fillOval(getWidth() - 200, getHeight() - 220, 300, 300);
-
                 int panelW = getWidth();
                 int panelH = getHeight();
-                int centerY = panelH / 2 - 15;
+                int centerY = panelH / 2;
 
-                // Prominent Centered Logo Presentation
+                GradientPaint gp = new GradientPaint(
+                        0, 0, new Color(15, 23, 42),
+                        panelW, panelH, new Color(30, 41, 59)
+                );
+                g2.setPaint(gp);
+                g2.fillRect(0, 0, panelW, panelH);
+
+                g2.setColor(new Color(99, 102, 241, 35));
+                g2.fillOval(-80, -80, 420, 420);
+
+                g2.setColor(new Color(168, 85, 247, 28));
+                g2.fillOval(panelW - 320, panelH - 340, 440, 440);
+
                 URL logoUrl = getClass().getResource("/images/logo3.png");
+                int logoWidth = 280;
+                int logoHeight = 186;
+                int logoX = (panelW - logoWidth) / 2;
+                int logoY = centerY - logoHeight - 20;
+
                 if (logoUrl != null) {
                     Image logo = new ImageIcon(logoUrl).getImage();
-
-                    // Large hero logo scaling (240px wide)
-                    int logoWidth = 240;
-                    int logoHeight = 160;
-                    int logoX = (panelW - logoWidth) / 2;
-                    int logoY = centerY - (logoHeight / 2) - 30;
-
                     g2.drawImage(logo, logoX, logoY, logoWidth, logoHeight, this);
+                } else {
+                    g2.setColor(Color.WHITE);
+                    g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 48));
+                    FontMetrics fm = g2.getFontMetrics();
+                    String fallback = "🏨";
+                    g2.drawString(fallback, (panelW - fm.stringWidth(fallback)) / 2, logoY + 100);
                 }
 
-                // Subtitle Badges (Cleaned up, no duplicate "GRAND HORIZON" text)
                 g2.setColor(new Color(129, 140, 248));
-                g2.setFont(new Font("Century Gothic", Font.BOLD, 12));
+                g2.setFont(new Font("Century Gothic", Font.BOLD, 14));
                 FontMetrics fm1 = g2.getFontMetrics();
-                String badge = "HOTEL RESERVATION & MANAGEMENT";
-                g2.drawString(badge, (panelW - fm1.stringWidth(badge)) / 2, centerY + 100);
+                String badge = "HOTEL RESERVATION & CONCIERGE OPERATIONS";
+                g2.drawString(badge, (panelW - fm1.stringWidth(badge)) / 2, centerY + 36);
 
                 g2.setColor(new Color(148, 163, 184));
-                g2.setFont(new Font("Century Gothic", Font.PLAIN, 11));
+                g2.setFont(new Font("Century Gothic", Font.PLAIN, 12));
                 FontMetrics fm2 = g2.getFontMetrics();
-                String sub = "Luxury Hospitality • Self Service Portal • VIP Ledger";
-                g2.drawString(sub, (panelW - fm2.stringWidth(sub)) / 2, centerY + 122);
+                String sub = "Luxury Hospitality • Self Service Portal • Real-Time Inventory Sync";
+                g2.drawString(sub, (panelW - fm2.stringWidth(sub)) / 2, centerY + 62);
 
-                // Bottom Version Note
-                g2.setColor(new Color(100, 116, 139, 140));
-                g2.setFont(new Font("Century Gothic", Font.PLAIN, 10));
-                String ver = "v2.6 Multi-Tier Enterprise Build";
-                g2.drawString(ver, (panelW - g2.getFontMetrics().stringWidth(ver)) / 2, panelH - 24);
+                g2.setColor(new Color(100, 116, 139, 160));
+                g2.setFont(new Font("Century Gothic", Font.PLAIN, 11));
+                String ver = "v2.6 Enterprise Multi-Tier Deployment";
+                g2.drawString(ver, (panelW - g2.getFontMetrics().stringWidth(ver)) / 2, panelH - 32);
 
                 g2.dispose();
             }
@@ -392,12 +117,16 @@ public class User_UI extends JFrame {
     }
 
     private JPanel createLoginFormPanel() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setBackground(Color.WHITE);
-        panel.setBorder(new EmptyBorder(40, 48, 40, 48));
+        JPanel outerContainer = new JPanel(new GridBagLayout());
+        outerContainer.setBackground(Color.WHITE);
 
-        // Segmented Switch Pills (Customer vs Staff)
+        JPanel formCard = new JPanel();
+        formCard.setLayout(new BoxLayout(formCard, BoxLayout.Y_AXIS));
+        formCard.setOpaque(false);
+        formCard.setPreferredSize(new Dimension(420, 520));
+        formCard.setMaximumSize(new Dimension(420, 520));
+        formCard.setBorder(new EmptyBorder(10, 10, 10, 10));
+
         JPanel switchPillContainer = new JPanel(new GridLayout(1, 2, 6, 0)) {
             @Override
             protected void paintComponent(Graphics g) {
@@ -423,12 +152,11 @@ public class User_UI extends JFrame {
         switchPillContainer.add(btnCustomerTab);
         switchPillContainer.add(btnStaffTab);
 
-        panel.add(switchPillContainer);
-        panel.add(Box.createRigidArea(new Dimension(0, 26)));
+        formCard.add(switchPillContainer);
+        formCard.add(Box.createRigidArea(new Dimension(0, 26)));
 
-        // Title Texts
         JLabel lblGreeting = new JLabel("Welcome Back");
-        lblGreeting.setFont(new Font("Century Gothic", Font.BOLD, 22));
+        lblGreeting.setFont(new Font("Century Gothic", Font.BOLD, 24));
         lblGreeting.setForeground(new Color(15, 23, 42));
         lblGreeting.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -437,12 +165,11 @@ public class User_UI extends JFrame {
         lblSubHeader.setForeground(new Color(100, 116, 139));
         lblSubHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        panel.add(lblGreeting);
-        panel.add(Box.createRigidArea(new Dimension(0, 4)));
-        panel.add(lblSubHeader);
-        panel.add(Box.createRigidArea(new Dimension(0, 24)));
+        formCard.add(lblGreeting);
+        formCard.add(Box.createRigidArea(new Dimension(0, 6)));
+        formCard.add(lblSubHeader);
+        formCard.add(Box.createRigidArea(new Dimension(0, 26)));
 
-        // Inputs
         lblInputHeader = new JLabel("Email / Phone Number");
         lblInputHeader.setFont(new Font("Century Gothic", Font.BOLD, 11));
         lblInputHeader.setForeground(new Color(51, 65, 85));
@@ -459,17 +186,16 @@ public class User_UI extends JFrame {
         txtPassword = new JPasswordField();
         JPanel fieldPass = createRoundedInputBox(txtPassword, "🔒");
 
-        panel.add(lblInputHeader);
-        panel.add(Box.createRigidArea(new Dimension(0, 6)));
-        panel.add(fieldIdentifier);
-        panel.add(Box.createRigidArea(new Dimension(0, 14)));
+        formCard.add(lblInputHeader);
+        formCard.add(Box.createRigidArea(new Dimension(0, 6)));
+        formCard.add(fieldIdentifier);
+        formCard.add(Box.createRigidArea(new Dimension(0, 16)));
 
-        panel.add(lblPassHeader);
-        panel.add(Box.createRigidArea(new Dimension(0, 6)));
-        panel.add(fieldPass);
-        panel.add(Box.createRigidArea(new Dimension(0, 22)));
+        formCard.add(lblPassHeader);
+        formCard.add(Box.createRigidArea(new Dimension(0, 6)));
+        formCard.add(fieldPass);
+        formCard.add(Box.createRigidArea(new Dimension(0, 24)));
 
-        // Action Buttons Row (Clear & Sign In)
         JPanel actionRow = new JPanel(new GridLayout(1, 2, 12, 0));
         actionRow.setOpaque(false);
         actionRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
@@ -521,14 +247,13 @@ public class User_UI extends JFrame {
         btnLogin.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnLogin.addActionListener(e -> handleLogin());
 
-        // Enable Enter key submission
         getRootPane().setDefaultButton(btnLogin);
 
         actionRow.add(btnClear);
         actionRow.add(btnLogin);
 
-        panel.add(actionRow);
-        panel.add(Box.createRigidArea(new Dimension(0, 24)));
+        formCard.add(actionRow);
+        formCard.add(Box.createRigidArea(new Dimension(0, 22)));
 
         registerRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 0));
         registerRow.setOpaque(false);
@@ -563,10 +288,10 @@ public class User_UI extends JFrame {
         registerRow.add(lblNoAcc);
         registerRow.add(lblRegister);
 
-        panel.add(registerRow);
-        panel.add(Box.createVerticalGlue());
+        formCard.add(registerRow);
 
-        return panel;
+        outerContainer.add(formCard);
+        return outerContainer;
     }
 
     private void setLoginMode(boolean staff) {
@@ -664,8 +389,8 @@ public class User_UI extends JFrame {
         };
 
         wrapper.setOpaque(false);
-        wrapper.setPreferredSize(new Dimension(Integer.MAX_VALUE, 40));
-        wrapper.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        wrapper.setPreferredSize(new Dimension(Integer.MAX_VALUE, 42));
+        wrapper.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
         wrapper.setBorder(new EmptyBorder(0, 12, 0, 12));
         wrapper.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -681,6 +406,7 @@ public class User_UI extends JFrame {
 
         wrapper.add(lblIcon, BorderLayout.WEST);
         wrapper.add(inputComponent, BorderLayout.CENTER);
+
         if (inputComponent instanceof JPasswordField) {
             JPasswordField pwdField = (JPasswordField) inputComponent;
             char defaultEchoChar = pwdField.getEchoChar();
@@ -698,11 +424,7 @@ public class User_UI extends JFrame {
                         @Override
                         public void mouseClicked(java.awt.event.MouseEvent e) {
                             isPasswordVisible = !isPasswordVisible;
-                            if (isPasswordVisible) {
-                                pwdField.setEchoChar((char) 0); // Show password
-                            } else {
-                                pwdField.setEchoChar(defaultEchoChar); // Mask password
-                            }
+                            pwdField.setEchoChar(isPasswordVisible ? (char) 0 : defaultEchoChar);
                             repaint();
                             pwdField.requestFocus();
                         }
@@ -737,19 +459,16 @@ public class User_UI extends JFrame {
                     int cx = w / 2;
                     int cy = h / 2;
 
-                    // 1. Draw Eye Outline (Curved Upper and Lower Arcs)
                     java.awt.geom.Path2D eyePath = new java.awt.geom.Path2D.Double();
                     eyePath.moveTo(cx - 9, cy);
                     eyePath.quadTo(cx, cy - 6.5, cx + 9, cy);
                     eyePath.quadTo(cx, cy + 6.5, cx - 9, cy);
                     g2.draw(eyePath);
 
-                    // 2. Draw Pupil
                     if (isPasswordVisible) {
                         g2.fillOval(cx - 3, cy - 3, 6, 6);
                     } else {
                         g2.drawOval(cx - 3, cy - 3, 6, 6);
-                        // Diagonal Slash Line when password is hidden
                         g2.drawLine(cx - 7, cy + 6, cx + 7, cy - 6);
                     }
 
@@ -772,7 +491,6 @@ public class User_UI extends JFrame {
         }
 
         if (isStaffMode) {
-            // Staff Authentication via DAO
             String authenticatedRole = UserDAO.validateAdmin(identifier, password);
             if (authenticatedRole != null) {
                 currentUsername = identifier;
@@ -785,7 +503,6 @@ public class User_UI extends JFrame {
                 JOptionPane.showMessageDialog(this, "Invalid staff username/email or password.", "Login Failed", JOptionPane.ERROR_MESSAGE);
             }
         } else {
-            // Customer Authentication via DAO
             boolean valid = UserDAO.validateCustomer(identifier, password);
             if (valid) {
                 currentUsername = identifier;
@@ -800,7 +517,7 @@ public class User_UI extends JFrame {
         }
     }
 
-    static void main(String[] args) {
+    public static void main(String[] args) {
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         } catch (Exception ignored) {}
@@ -808,4 +525,3 @@ public class User_UI extends JFrame {
         SwingUtilities.invokeLater(() -> new User_UI().setVisible(true));
     }
 }
-

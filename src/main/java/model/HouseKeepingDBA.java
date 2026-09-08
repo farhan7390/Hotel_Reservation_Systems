@@ -81,7 +81,7 @@ public class HouseKeepingDBA {
 
     public static Vector<StaffMember> getHousekeepingStaff() {
         Vector<StaffMember> staffList = new Vector<>();
-        String sql = "SELECT user_id, full_name FROM Users WHERE role IN ('HOUSEKEEPING', 'STAFF') AND status = 'ACTIVE' ORDER BY full_name";
+        String sql = "SELECT user_id, full_name FROM Users WHERE role = 'HOUSEKEEPING' AND status = 'ACTIVE' ORDER BY full_name ASC;";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pst = conn.prepareStatement(sql);
              ResultSet rs = pst.executeQuery()) {
@@ -99,7 +99,6 @@ public class HouseKeepingDBA {
         Connection conn = DBConnection.getConnection();
         if (conn == null) return data;
 
-        // Removed r.floor_no reference
         String sql = "SELECT hr.request_id, hr.room_no, " +
                 "ISNULL(rc.category_name, 'Standard Suite') AS category_name, " +
                 "ISNULL(u.full_name, 'Unassigned') AS staff_name, " +
@@ -117,8 +116,6 @@ public class HouseKeepingDBA {
              ResultSet rs = pst.executeQuery()) {
             while (rs.next()) {
                 String roomNo = rs.getString("room_no");
-
-                // Derive floor dynamically from room number (e.g., "401" -> Floor 4, "PH-401" -> Floor 4)
                 String floorDisplay = deriveFloorFromRoomNo(roomNo);
 
                 Vector<Object> row = new Vector<>();
@@ -139,14 +136,11 @@ public class HouseKeepingDBA {
         return data;
     }
 
-    // Helper to extract floor number safely from room numbers
     private static String deriveFloorFromRoomNo(String roomNo) {
         if (roomNo == null || roomNo.isEmpty()) return "Floor 1";
 
-        // Remove non-digits
         String digitsOnly = roomNo.replaceAll("[^0-9]", "");
         if (!digitsOnly.isEmpty()) {
-            // If room is 401, first digit '4' is the floor
             if (digitsOnly.length() >= 3) {
                 return "Floor " + digitsOnly.charAt(0);
             } else {
@@ -162,10 +156,8 @@ public class HouseKeepingDBA {
         Connection conn = DBConnection.getConnection();
         if (conn == null) return false;
 
-        // 1. Clean up repetitive timing strings if already present
         String cleanedNotes = (notes != null) ? notes.replaceAll("(\\s*\\([^)]*\\)){2,}", "$1").trim() : "Routine Cleaning";
 
-        // 2. Parse out preferred time slot if present in parentheses (e.g. "(Immediately (Next 15 Mins))")
         String timeSlot = "Immediate";
         String requestType = cleanedNotes;
 
@@ -175,7 +167,6 @@ public class HouseKeepingDBA {
             requestType = cleanedNotes.substring(0, startIdx).trim();
         }
 
-        // Safety length bounds matching the database schema
         if (requestType.length() > 255) requestType = requestType.substring(0, 255);
         if (timeSlot.length() > 50) timeSlot = timeSlot.substring(0, 50);
 

@@ -355,83 +355,6 @@ public class ServiceUI extends JPanel {
         }
     }
 
-    /*private void openStatusDialog() {
-        if (selectedOrderId == null) {
-            JOptionPane.showMessageDialog(this, "Please select an order from the queue table first.", "Selection Required", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Update Service Order Status", true);
-        dialog.setSize(360, 220);
-        dialog.setLocationRelativeTo(this);
-        dialog.setLayout(new BorderLayout());
-
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setBackground(Color.WHITE);
-        panel.setBorder(new EmptyBorder(20, 24, 20, 24));
-
-        JLabel lblTitle = new JLabel("Order: " + selectedOrderId);
-        lblTitle.setFont(new Font("Century Gothic", Font.BOLD, 14));
-        lblTitle.setForeground(new Color(30, 41, 59));
-
-        JComboBox<String> cmbStatus = new JComboBox<>(new String[]{"PREPARING", "IN SERVICE", "DELIVERED", "BILLED", "CANCELLED"});
-        styleComboBox(cmbStatus);
-
-        JButton btnSave = new JButton("Update Status") {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                if (getModel().isArmed()) {
-                    g2.setColor(new Color(13, 148, 136));
-                } else if (getModel().isRollover()) {
-                    g2.setColor(new Color(5, 150, 105));
-                } else {
-                    g2.setColor(new Color(16, 185, 129));
-                }
-
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-
-                g2.setColor(Color.WHITE);
-                g2.setFont(getFont());
-                FontMetrics fm = g2.getFontMetrics();
-                int tx = (getWidth() - fm.stringWidth(getText())) / 2;
-                int ty = ((getHeight() - fm.getHeight()) / 2) + fm.getAscent();
-                g2.drawString(getText(), tx, ty);
-
-                g2.dispose();
-            }
-        };
-        btnSave.setFont(new Font("Century Gothic", Font.BOLD, 12));
-        btnSave.setForeground(Color.WHITE);
-        btnSave.setPreferredSize(new Dimension(88, 30));
-        btnSave.setFocusPainted(false);
-        btnSave.setBorderPainted(false);
-        btnSave.setContentAreaFilled(false);
-        btnSave.setOpaque(false);
-        btnSave.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnSave.addActionListener(e -> {
-            String newStatus = (String) cmbStatus.getSelectedItem();
-            boolean ok = ServiceDBA.updateServiceOrderStatus(selectedOrderId, newStatus);
-            if (ok) {
-                dialog.dispose();
-                loadTableData();
-                JOptionPane.showMessageDialog(this, "Order " + selectedOrderId + " updated to " + newStatus + "!");
-            }
-        });
-
-        panel.add(lblTitle);
-        panel.add(Box.createRigidArea(new Dimension(0, 14)));
-        panel.add(cmbStatus);
-        panel.add(Box.createRigidArea(new Dimension(0, 18)));
-        panel.add(btnSave);
-
-        dialog.add(panel, BorderLayout.CENTER);
-        dialog.setVisible(true);
-    }*/
-
     private void openStatusDialog() {
         if (selectedOrderId == null) {
             JOptionPane.showMessageDialog(this, "Please select an order from the queue table first.", "Selection Required", JOptionPane.WARNING_MESSAGE);
@@ -447,7 +370,6 @@ public class ServiceUI extends JPanel {
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(new Color(248, 250, 252));
 
-        // Top Header Banner
         JPanel header = new JPanel(new BorderLayout());
         header.setBackground(Color.WHITE);
         header.setBorder(BorderFactory.createCompoundBorder(
@@ -470,7 +392,6 @@ public class ServiceUI extends JPanel {
         headerText.add(lblSub);
         header.add(headerText, BorderLayout.WEST);
 
-        // Status Selection Grid
         JPanel body = new JPanel(new GridLayout(5, 1, 0, 8));
         body.setOpaque(false);
         body.setBorder(new EmptyBorder(16, 22, 16, 22));
@@ -508,7 +429,6 @@ public class ServiceUI extends JPanel {
             body.add(optBtn);
         }
 
-        // Action Footer Bar
         JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 14));
         footer.setBackground(Color.WHITE);
         footer.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(226, 232, 240)));
@@ -597,7 +517,6 @@ public class ServiceUI extends JPanel {
                     g2.drawRoundRect(0, 0, w - 1, h - 1, 10, 10);
                 }
 
-                // Left icon badge
                 g2.setColor(new Color(accentColor.getRed(), accentColor.getGreen(), accentColor.getBlue(), sel ? 50 : 25));
                 g2.fillRoundRect(10, (h - 32) / 2, 32, 32, 8, 8);
 
@@ -608,7 +527,6 @@ public class ServiceUI extends JPanel {
                 int ey = ((h - fme.getHeight()) / 2) + fme.getAscent();
                 g2.drawString(icon, ex, ey);
 
-                // Title & Subtitle
                 g2.setFont(new Font("Century Gothic", Font.BOLD, 12));
                 g2.setColor(sel ? accentColor : new Color(30, 41, 59));
                 g2.drawString(title, 52, 20);
@@ -616,7 +534,6 @@ public class ServiceUI extends JPanel {
                 g2.setFont(new Font("Century Gothic", Font.PLAIN, 10));
                 g2.drawString(subtitle, 52, 36);
 
-                // Right Selection Radio Indicator
                 int rx = w - 26;
                 int ry = (h - 14) / 2;
                 if (sel) {

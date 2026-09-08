@@ -333,7 +333,6 @@ public class BillingUI extends JPanel {
         txtTaxDiscount.setText(String.format("%,d MMK", currentFolio.taxAmount.longValue()));
         txtNetPayable.setText(String.format("%,d MMK", currentFolio.netPayable.longValue()));
 
-        // Populate dynamic itemized services
         tableModelServices.setRowCount(0);
         if (currentFolio.bookingRef != null && !currentFolio.bookingRef.isEmpty()) {
             Vector<Vector<Object>> services = BillingDBA.getServiceOrdersForBooking(currentFolio.bookingRef);

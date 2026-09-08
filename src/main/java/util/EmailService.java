@@ -13,21 +13,18 @@ import java.util.concurrent.Executors;
 
 public class EmailService {
 
-    // Configure your SMTP credentials
     private static final String SMTP_HOST = "smtp.gmail.com";
     private static final String SMTP_PORT = "587";
-    private static final String SENDER_EMAIL = "soemoelwin414@gmail.com"; // Replace with your email
-    private static final String SENDER_APP_PASSWORD = "lpxchiqwrxpvgluh"; // Use Google App Password (not standard password)
+    private static final String SENDER_EMAIL = "soemoelwin414@gmail.com";
+    private static final String SENDER_APP_PASSWORD = "lpxchiqwrxpvgluh";
 
     private static final ExecutorService mailExecutor = Executors.newSingleThreadExecutor();
 
-    // 1. Generate secure 6-digit OTP
     public static String generateOTP() {
         int code = 100000 + new Random().nextInt(900000);
         return String.valueOf(code);
     }
 
-    // 2. Dispatch OTP Verification Email
     public static void sendOtpVerificationEmail(String recipientEmail, String recipientName, String otpCode) {
         if (recipientEmail == null || recipientEmail.trim().isEmpty() || !recipientEmail.contains("@")) {
             System.err.println("Skipping OTP email: No valid recipient email provided.");
@@ -62,7 +59,6 @@ public class EmailService {
         });
     }
 
-    // 3. Dispatch Booking Confirmation & Invoice Email
     public static void sendBookingConfirmationEmail(
             String recipientEmail,
             String guestName,

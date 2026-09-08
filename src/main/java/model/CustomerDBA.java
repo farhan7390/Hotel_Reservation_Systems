@@ -105,26 +105,44 @@ public class CustomerDBA {
         return data;
     }
 
-    public static List<RoomCardData> getAvailableRoomCardsForDates(LocalDate inDate, LocalDate outDate) {
+    public static List<RoomCardData> getAvailableRoomCardsForDates(LocalDate inDate, LocalDate outDate, int guestCount) {
         List<RoomCardData> list = new ArrayList<>();
         Connection conn = DBConnection.getConnection();
         if (conn == null || inDate == null || outDate == null) return list;
 
-        // Date overlap logic: check_in_date < outDate AND check_out_date > inDate
-        String query = "SELECT r.room_no, rc.category_name, r.floor_level, rc.base_night_rate, " +
-                "r.has_balcony, r.has_sea_view, r.has_jacuzzi, r.image_path " +
-                "FROM Rooms r " +
-                "INNER JOIN RoomCategories rc ON r.category_id = rc.category_id " +
-                "WHERE r.status != 'MAINTENANCE' " +
-                "AND r.room_no NOT IN (" +
-                "    SELECT b.room_no FROM Bookings b " +
-                "    WHERE b.booking_status IN ('CONFIRMED', 'CHECKED-IN') " +
-                "    AND b.check_in_date < ? " +
-                "    AND b.check_out_date > ? " +
-                ") " +
-                "ORDER BY r.room_no";
+        // Base query filtering out active overlapping bookings
+        StringBuilder sql = new StringBuilder(
+                "SELECT r.room_no, rc.category_name, r.floor_level, rc.base_night_rate, " +
+                        "r.has_balcony, r.has_sea_view, r.has_jacuzzi, r.image_path " +
+                        "FROM Rooms r " +
+                        "INNER JOIN RoomCategories rc ON r.category_id = rc.category_id " +
+                        "WHERE r.status != 'MAINTENANCE' " +
+                        "AND r.room_no NOT IN (" +
+                        "    SELECT b.room_no FROM Bookings b " +
+                        "    WHERE b.booking_status IN ('CONFIRMED', 'CHECKED-IN') " +
+                        "    AND b.check_in_date < ? " +
+                        "    AND b.check_out_date > ? " +
+                        ") "
+        );
 
-        try (PreparedStatement pst = conn.prepareStatement(query)) {
+        // Filter based on requested party size
+        if (guestCount == 1) {
+            // 1 Guest: Can stay in any room except exclusive multi-guest Family Suites
+            sql.append("AND rc.category_name NOT LIKE '%Family%' ");
+        } else if (guestCount == 2) {
+            // 2 Guests: Standard Double, Deluxe, Suite, Penthouse (exclude Single/Standard Solo if any)
+            sql.append("AND rc.category_name NOT LIKE '%Single%' ");
+        } else if (guestCount == 3) {
+            // 3 Guests: Family Suites, Deluxe Suites, or Penthouses (exclude Single & Standard Double)
+            sql.append("AND (rc.category_name LIKE '%Family%' OR rc.category_name LIKE '%Deluxe%' OR rc.category_name LIKE '%Penthouse%' OR rc.category_name LIKE '%Suite%') ");
+        } else if (guestCount >= 4) {
+            // 4+ Guests: Family Suites, Executive Suites, and Penthouses only
+            sql.append("AND (rc.category_name LIKE '%Family%' OR rc.category_name LIKE '%Penthouse%' OR rc.category_name LIKE '%Presidential%') ");
+        }
+
+        sql.append("ORDER BY r.room_no");
+
+        try (PreparedStatement pst = conn.prepareStatement(sql.toString())) {
             pst.setDate(1, java.sql.Date.valueOf(outDate));
             pst.setDate(2, java.sql.Date.valueOf(inDate));
 
@@ -135,7 +153,7 @@ public class CustomerDBA {
                     r.title = rs.getString("category_name");
                     r.floor = rs.getString("floor_level");
                     r.price = String.format("%,d MMK / night", rs.getBigDecimal("base_night_rate").longValue());
-                    r.tierBadge = "Available Now";
+                    r.tierBadge = "Fits " + guestCount + (guestCount == 1 ? " Guest" : " Guests");
 
                     StringBuilder amenities = new StringBuilder();
                     if (rs.getBoolean("has_balcony")) amenities.append("Balcony, ");
@@ -169,7 +187,6 @@ public class CustomerDBA {
         Connection conn = DBConnection.getConnection();
         if (conn == null || guestId == null || guestId.isEmpty()) return data;
 
-        // 1. Room Accommodation for ACTIVE stay only
         String roomSql = "SELECT b.booking_ref, 'Room Stay (' + rc.category_name + ')' AS item_name, " +
                 "b.total_nights_days AS qty, b.room_total_amount AS amount, CONVERT(VARCHAR(10), b.check_in_date, 103) AS charge_date " +
                 "FROM Bookings b " +
@@ -177,7 +194,6 @@ public class CustomerDBA {
                 "INNER JOIN RoomCategories rc ON r.category_id = rc.category_id " +
                 "WHERE b.guest_id = ? AND b.booking_status IN ('CHECKED-IN', 'CONFIRMED')";
 
-        // 2. Room Service Orders linked ONLY to the ACTIVE stay
         String serviceSql = "SELECT sc.service_name, rso.quantity, rso.total_amount, " +
                 "CONVERT(VARCHAR(10), rso.ordered_at, 103) + ' ' + CONVERT(VARCHAR(5), rso.ordered_at, 108) AS order_time " +
                 "FROM RoomServiceOrders rso " +
@@ -243,7 +259,6 @@ public class CustomerDBA {
                 ));
             }
         } catch (SQLException e) {
-            // Fallback query if table name in your schema is LoyaltyPerks
             try (PreparedStatement pstFallback = conn.prepareStatement(
                     "SELECT perk_id, perk_name, points_cost FROM LoyaltyPerks WHERE is_active = 1")) {
                 try (ResultSet rsFb = pstFallback.executeQuery()) {
@@ -263,120 +278,6 @@ public class CustomerDBA {
         return perks;
     }
 
-
-    /*public static boolean createCustomerBooking(String guestId, String roomNo, String tierName, LocalDate inDate, LocalDate outDate) {
-        Connection conn = DBConnection.getConnection();
-        if (conn == null || guestId == null || guestId.trim().isEmpty()) return false;
-
-        String getTierSql = "SELECT tier_id FROM PricingTiers WHERE tier_name = ? OR tier_name LIKE ?";
-        String getCatSql = "SELECT rc.category_name, rc.base_night_rate FROM Rooms r " +
-                "INNER JOIN RoomCategories rc ON r.category_id = rc.category_id WHERE r.room_no = ?";
-        String insertBkgSql = "INSERT INTO Bookings (booking_ref, guest_id, room_no, tier_id, check_in_date, check_out_date, " +
-                "total_nights_days, room_total_amount, booking_status) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'CONFIRMED')";
-        String updateRoomSql = "UPDATE Rooms SET status = 'OCCUPIED' WHERE room_no = ?";
-        String getGuestSql = "SELECT full_name, email FROM Guests WHERE guest_id = ?";
-
-        String newBookingRef = "BKG-" + (System.currentTimeMillis() % 100000);
-        String categoryName = "Standard Double";
-        String cleanTier = tierName.split(" \\(")[0].trim();
-        BigDecimal totalAmount = BigDecimal.ZERO;
-        String guestEmail = null;
-        String guestFullName = "Valued Guest";
-
-        try {
-            conn.setAutoCommit(false);
-
-            // 1. Resolve Tier ID
-            int tierId = 1;
-            try (PreparedStatement pstTier = conn.prepareStatement(getTierSql)) {
-                pstTier.setString(1, tierName);
-                pstTier.setString(2, cleanTier + "%");
-                try (ResultSet rs = pstTier.executeQuery()) {
-                    if (rs.next()) tierId = rs.getInt("tier_id");
-                }
-            }
-
-            // 2. Resolve Category & Calculate Total Tariff
-            try (PreparedStatement pstCat = conn.prepareStatement(getCatSql)) {
-                pstCat.setString(1, roomNo);
-                try (ResultSet rs = pstCat.executeQuery()) {
-                    if (rs.next()) categoryName = rs.getString("category_name");
-                }
-            }
-
-            long totalUnits = java.time.temporal.ChronoUnit.DAYS.between(inDate, outDate);
-            if (totalUnits <= 0) totalUnits = 1;
-
-            totalAmount = BookingDBA.calculateTariff(categoryName, cleanTier, inDate, outDate);
-
-            // 3. Insert Booking Record
-            try (PreparedStatement pstInsert = conn.prepareStatement(insertBkgSql)) {
-                pstInsert.setString(1, newBookingRef);
-                pstInsert.setString(2, guestId);
-                pstInsert.setString(3, roomNo);
-                pstInsert.setInt(4, tierId);
-                pstInsert.setDate(5, java.sql.Date.valueOf(inDate));
-                pstInsert.setDate(6, java.sql.Date.valueOf(outDate));
-                pstInsert.setInt(7, (int) totalUnits);
-                pstInsert.setBigDecimal(8, totalAmount);
-                pstInsert.executeUpdate();
-            }
-
-            // 4. Update Room status to OCCUPIED
-            try (PreparedStatement pstRoom = conn.prepareStatement(updateRoomSql)) {
-                pstRoom.setString(1, roomNo);
-                pstRoom.executeUpdate();
-            }
-
-            // 5. Fetch Guest Email for Invoice Transmission
-            String targetEmail = (guestEmail != null && !guestEmail.trim().isEmpty()) ? guestEmail : null;
-            String targetName = (guestFullName != null && !guestFullName.trim().isEmpty()) ? guestFullName : "Valued Guest";
-
-            if (targetEmail == null) {
-                String findEmailSql = "SELECT full_name, email FROM Guests WHERE guest_id = ?";
-                try (PreparedStatement pstG = conn.prepareStatement(findEmailSql)) {
-                    pstG.setString(1, guestId);
-                    try (ResultSet rsG = pstG.executeQuery()) {
-                        if (rsG.next()) {
-                            targetName = rsG.getString("full_name");
-                            targetEmail = rsG.getString("email");
-                        }
-                    }
-                }
-            }
-
-            conn.commit();
-
-            // 6. Dispatch Confirmation Email
-            if (targetEmail != null && !targetEmail.trim().isEmpty() && targetEmail.contains("@")) {
-                System.out.println("Triggering booking confirmation email to: " + targetEmail);
-                util.EmailService.sendBookingConfirmationEmail(
-                        targetEmail,
-                        targetName,
-                        newBookingRef,
-                        roomNo,
-                        categoryName,
-                        cleanTier,
-                        inDate,
-                        outDate,
-                        totalAmount
-                );
-            } else {
-                System.err.println("Booking email skipped: Guest email is missing in session and database.");
-            }
-
-            return true;
-
-        } catch (SQLException e) {
-            try { conn.rollback(); } catch (SQLException ignored) {}
-            e.printStackTrace();
-            return false;
-        } finally {
-            try { conn.setAutoCommit(true); } catch (SQLException ignored) {}
-        }
-    }*/
-
     public static boolean createCustomerBooking(String guestId, String guestFullName, String guestEmail,
                                                 String roomNo, String tierName, LocalDate inDate, LocalDate outDate) {
         Connection conn = DBConnection.getConnection();
@@ -386,8 +287,8 @@ public class CustomerDBA {
         String getCatSql = "SELECT rc.category_name, rc.base_night_rate FROM Rooms r " +
                 "INNER JOIN RoomCategories rc ON r.category_id = rc.category_id WHERE r.room_no = ?";
         String insertBkgSql = "INSERT INTO Bookings (booking_ref, guest_id, room_no, tier_id, check_in_date, check_out_date, " +
-                "total_nights_days, room_total_amount, booking_status) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'CONFIRMED')";
+                "total_nights_days, room_total_amount, booking_status, created_at) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'CONFIRMED', CURRENT_TIMESTAMP)";
         String updateRoomSql = "UPDATE Rooms SET status = 'OCCUPIED' WHERE room_no = ?";
 
         String newBookingRef = "BKG-" + (System.currentTimeMillis() % 100000);
@@ -398,7 +299,6 @@ public class CustomerDBA {
         try {
             conn.setAutoCommit(false);
 
-            // 1. Resolve Tier ID
             int tierId = 1;
             try (PreparedStatement pstTier = conn.prepareStatement(getTierSql)) {
                 pstTier.setString(1, tierName);
@@ -408,7 +308,6 @@ public class CustomerDBA {
                 }
             }
 
-            // 2. Resolve Category & Calculate Total Tariff
             try (PreparedStatement pstCat = conn.prepareStatement(getCatSql)) {
                 pstCat.setString(1, roomNo);
                 try (ResultSet rs = pstCat.executeQuery()) {
@@ -421,7 +320,6 @@ public class CustomerDBA {
 
             totalAmount = BookingDBA.calculateTariff(categoryName, cleanTier, inDate, outDate);
 
-            // 3. Insert Booking Record
             try (PreparedStatement pstInsert = conn.prepareStatement(insertBkgSql)) {
                 pstInsert.setString(1, newBookingRef);
                 pstInsert.setString(2, guestId);
@@ -434,7 +332,6 @@ public class CustomerDBA {
                 pstInsert.executeUpdate();
             }
 
-            // 4. Update Room status to OCCUPIED
             try (PreparedStatement pstRoom = conn.prepareStatement(updateRoomSql)) {
                 pstRoom.setString(1, roomNo);
                 pstRoom.executeUpdate();
@@ -442,7 +339,6 @@ public class CustomerDBA {
 
             conn.commit();
 
-            // 5. Dispatch Confirmation Email
             if (guestEmail != null && !guestEmail.trim().isEmpty() && guestEmail.contains("@")) {
                 util.EmailService.sendBookingConfirmationEmail(
                         guestEmail,
@@ -571,7 +467,6 @@ public class CustomerDBA {
         String updateOrdersSql = "UPDATE RoomServiceOrders SET order_status = 'BILLED' WHERE booking_ref = ? AND order_status != 'CANCELLED'";
         String updateRoomSql = "UPDATE Rooms SET status = 'AVAILABLE' WHERE room_no = ?";
 
-        // Prevents tier downgrades by prioritizing the member's current tier
         String updateGuestPointsSql = "UPDATE Guests SET loyalty_points = loyalty_points + ?, " +
                 "vip_tier = CASE " +
                 "  WHEN vip_tier = 'PLATINUM VIP' OR loyalty_points + ? >= 3500 THEN 'PLATINUM VIP' " +

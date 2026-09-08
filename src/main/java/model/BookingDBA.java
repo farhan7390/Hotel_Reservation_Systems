@@ -5,6 +5,8 @@ import java.sql.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Vector;
 
 public class BookingDBA {
@@ -326,5 +328,44 @@ public class BookingDBA {
             e.printStackTrace();
             return false;
         }
+    }
+
+    public static class NewBookingAlert {
+        public String bookingRef;
+        public String roomNo;
+        public String guestName;
+        public String tierName;
+        public Timestamp createdAt;
+    }
+
+    public static List<NewBookingAlert> getLatestBookings() {
+        List<NewBookingAlert> list = new ArrayList<>();
+        Connection conn = DBConnection.getConnection();
+        if (conn == null) return list;
+
+        String sql = "SELECT TOP 10 b.booking_ref, b.room_no, " +
+                "ISNULL(g.full_name, 'Valued Guest') AS guest_name, " +
+                "ISNULL(pt.tier_name, 'Stay') AS tier_name, " +
+                "ISNULL(b.created_at, CURRENT_TIMESTAMP) AS created_at " +
+                "FROM Bookings b " +
+                "LEFT JOIN Guests g ON b.guest_id = g.guest_id " +
+                "LEFT JOIN PricingTiers pt ON b.tier_id = pt.tier_id " +
+                "ORDER BY b.created_at DESC";
+
+        try (PreparedStatement pst = conn.prepareStatement(sql);
+             ResultSet rs = pst.executeQuery()) {
+            while (rs.next()) {
+                NewBookingAlert a = new NewBookingAlert();
+                a.bookingRef = rs.getString("booking_ref");
+                a.roomNo = rs.getString("room_no");
+                a.guestName = rs.getString("guest_name");
+                a.tierName = rs.getString("tier_name");
+                a.createdAt = rs.getTimestamp("created_at");
+                list.add(a);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return list;
     }
 }

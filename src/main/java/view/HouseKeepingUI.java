@@ -21,16 +21,19 @@ public class HouseKeepingUI extends JPanel {
     private JComboBox<String> cmbRoomNo, cmbCleaningStatus;
     private JComboBox<HouseKeepingDBA.StaffMember> cmbStaff;
     private JTextField txtRemarks;
-    private JButton btnUpdate, btnClear;
+    private JButton btnUpdate, btnClear, btnManualRefresh;
 
     private JLabel lblCleanReady, lblDirtyVacant, lblInProgress, lblMaintenance;
     private Integer selectedRequestId = null;
+
+    private Timer autoRefreshTimer;
 
     public HouseKeepingUI() {
         setLayout(new BorderLayout());
         setBackground(new Color(245, 247, 250));
         add(createMainContent(), BorderLayout.CENTER);
         loadInitialData();
+        startAutoRefreshTimer();
     }
 
     private JPanel createMainContent() {
@@ -140,6 +143,24 @@ public class HouseKeepingUI extends JPanel {
         tableTitle.setFont(new Font("Century Gothic", Font.BOLD, 15));
         tableTitle.setForeground(new Color(30, 41, 59));
 
+        JPanel controlsGroup = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        controlsGroup.setOpaque(false);
+
+        btnManualRefresh = new JButton("🔄 Refresh");
+        btnManualRefresh.setFont(new Font("Segoe UI Emoji", Font.BOLD, 11));
+        btnManualRefresh.setBackground(new Color(241, 245, 249));
+        btnManualRefresh.setForeground(new Color(51, 65, 85));
+        btnManualRefresh.setFocusPainted(false);
+        btnManualRefresh.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnManualRefresh.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(new Color(226, 232, 240), 1, true),
+                new EmptyBorder(5, 10, 5, 10)
+        ));
+        btnManualRefresh.addActionListener(e -> {
+            loadTableData();
+            loadRoomAndStaffOptions();
+        });
+
         JTextField searchBox = new JTextField();
         searchBox.setFont(new Font("Century Gothic", Font.PLAIN, 12));
         searchBox.setPreferredSize(new Dimension(180, 28));
@@ -157,8 +178,11 @@ public class HouseKeepingUI extends JPanel {
             public void changedUpdate(DocumentEvent e) { filterTable(searchBox.getText().trim()); }
         });
 
+        controlsGroup.add(btnManualRefresh);
+        controlsGroup.add(searchBox);
+
         headerRow.add(tableTitle, BorderLayout.WEST);
-        headerRow.add(searchBox, BorderLayout.EAST);
+        headerRow.add(controlsGroup, BorderLayout.EAST);
 
         String[] cols = {"Task ID", "Room No.", "Room Type", "Floor", "Assigned Staff", "Status", "Created Time", "Task / Notes", "Staff ID"};
         tableModel = new DefaultTableModel(new Object[][]{}, cols) {
@@ -213,22 +237,51 @@ public class HouseKeepingUI extends JPanel {
     }
 
     private void loadInitialData() {
+        loadRoomAndStaffOptions();
+        loadTableData();
+    }
+
+    private void loadRoomAndStaffOptions() {
+        Object selectedRoom = cmbRoomNo.getSelectedItem();
+        HouseKeepingDBA.StaffMember selectedStaff = (HouseKeepingDBA.StaffMember) cmbStaff.getSelectedItem();
+
         cmbRoomNo.removeAllItems();
         Vector<String> rooms = HouseKeepingDBA.getAllRooms();
         for (String r : rooms) cmbRoomNo.addItem(r);
+        if (selectedRoom != null) cmbRoomNo.setSelectedItem(selectedRoom);
 
         cmbStaff.removeAllItems();
         Vector<HouseKeepingDBA.StaffMember> staffList = HouseKeepingDBA.getHousekeepingStaff();
         for (HouseKeepingDBA.StaffMember s : staffList) cmbStaff.addItem(s);
-
-        loadTableData();
+        if (selectedStaff != null) {
+            for (int i = 0; i < cmbStaff.getItemCount(); i++) {
+                if (cmbStaff.getItemAt(i).userId.equals(selectedStaff.userId)) {
+                    cmbStaff.setSelectedIndex(i);
+                    break;
+                }
+            }
+        }
     }
 
-    private void loadTableData() {
+    public void loadTableData() {
+        Integer previousSelectedId = selectedRequestId;
+
         tableModel.setRowCount(0);
         Vector<Vector<Object>> tasks = HouseKeepingDBA.getAllHousekeepingTasks();
         for (Vector<Object> row : tasks) {
             tableModel.addRow(row);
+        }
+
+        if (previousSelectedId != null) {
+            for (int i = 0; i < tableModel.getRowCount(); i++) {
+                if (previousSelectedId.equals(tableModel.getValueAt(i, 0))) {
+                    int viewIndex = taskTable.convertRowIndexToView(i);
+                    if (viewIndex != -1) {
+                        taskTable.setRowSelectionInterval(viewIndex, viewIndex);
+                    }
+                    break;
+                }
+            }
         }
 
         HouseKeepingDBA.HousekeepingKPIs kpis = HouseKeepingDBA.getMetrics();
@@ -236,6 +289,23 @@ public class HouseKeepingUI extends JPanel {
         lblDirtyVacant.setText(kpis.dirtyVacant);
         lblInProgress.setText(kpis.inProgress);
         lblMaintenance.setText(kpis.maintenance);
+    }
+
+    private void startAutoRefreshTimer() {
+        autoRefreshTimer = new Timer(4000, e -> {
+            if (isShowing()) {
+                loadTableData();
+            }
+        });
+        autoRefreshTimer.start();
+    }
+
+    @Override
+    public void removeNotify() {
+        super.removeNotify();
+        if (autoRefreshTimer != null && autoRefreshTimer.isRunning()) {
+            autoRefreshTimer.stop();
+        }
     }
 
     private void filterTable(String query) {

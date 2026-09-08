@@ -8,20 +8,15 @@ import java.sql.SQLException;
 
 public class UserDAO {
 
-    public static String validateAdmin(String username, String password) {
+    public static String validateAdmin(String usernameOrEmail, String password) {
         Connection conn = DBConnection.getConnection();
-        if (conn == null) {
-            System.err.println("Database connection is null.");
-            return null;
-        }
+        if (conn == null) return null;
 
-        String query = "SELECT role FROM Users " +
-                "WHERE (username = ? OR email = ?) AND password_hash = ? AND status = 'ACTIVE'";
-
-        try (PreparedStatement pst = conn.prepareStatement(query)) {
-            pst.setString(1, username);
-            pst.setString(2, username);
-            pst.setString(3, password);
+        String sql = "SELECT role FROM Users WHERE (username = ? OR email = ?) AND password_hash = ? AND status = 'ACTIVE' AND role = 'ADMIN'";
+        try (PreparedStatement pst = conn.prepareStatement(sql)) {
+            pst.setString(1, usernameOrEmail.trim());
+            pst.setString(2, usernameOrEmail.trim());
+            pst.setString(3, password.trim());
 
             try (ResultSet rs = pst.executeQuery()) {
                 if (rs.next()) {

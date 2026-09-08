@@ -41,7 +41,6 @@ public class CustomerUI extends JPanel {
         main.setBackground(new Color(245, 247, 250));
         main.setBorder(new EmptyBorder(20, 24, 20, 24));
 
-        // 1. Live KPI Stats Cards Ribbon
         JPanel statsRow = new JPanel(new GridLayout(1, 4, 16, 0));
         statsRow.setOpaque(false);
         statsRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
@@ -63,7 +62,6 @@ public class CustomerUI extends JPanel {
         statsRow.add(cardInHouse);
         statsRow.add(cardRepeat);
 
-        // 2. Workspace: Form Left, Master Directory Table Right
         JPanel workspaceRow = new JPanel(new BorderLayout(18, 0));
         workspaceRow.setOpaque(false);
         workspaceRow.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -169,7 +167,6 @@ public class CustomerUI extends JPanel {
 
         formCard.add(actionBtns);
 
-        // Right Table Card
         JPanel tableCard = new JPanel(new BorderLayout());
         tableCard.setBackground(Color.WHITE);
         tableCard.setBorder(BorderFactory.createCompoundBorder(
@@ -232,7 +229,6 @@ public class CustomerUI extends JPanel {
         rowSorter = new TableRowSorter<>(tableModel);
         customerTable.setRowSorter(rowSorter);
 
-        // Hide extra metadata columns from visual table
         customerTable.removeColumn(customerTable.getColumnModel().getColumn(9));
         customerTable.removeColumn(customerTable.getColumnModel().getColumn(8));
         customerTable.removeColumn(customerTable.getColumnModel().getColumn(7));

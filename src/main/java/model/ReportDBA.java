@@ -2,7 +2,6 @@ package model;
 
 import java.math.BigDecimal;
 import java.sql.*;
-import java.text.DecimalFormat;
 import java.util.Vector;
 
 public class ReportDBA {
@@ -31,177 +30,172 @@ public class ReportDBA {
         public int spaLaundryPct = 0;
     }
 
-    public static ExecutiveMetrics getExecutiveMetrics() {
-        ExecutiveMetrics metrics = new ExecutiveMetrics();
-        Connection conn = DBConnection.getConnection();
-        if (conn == null) return metrics;
+    private static String buildDateFilterClause(String period, String dateCol) {
+        switch (period) {
+            case "Today":
+                return " CAST(" + dateCol + " AS DATE) = CAST(CURRENT_TIMESTAMP AS DATE) ";
+            case "This Week":
+                return " " + dateCol + " >= DATEADD(DAY, -7, CURRENT_TIMESTAMP) ";
+            case "This Month":
+                return " MONTH(" + dateCol + ") = MONTH(CURRENT_TIMESTAMP) AND YEAR(" + dateCol + ") = YEAR(CURRENT_TIMESTAMP) ";
+            case "Q3 2026":
+            case "Q3":
+                return " " + dateCol + " >= '2026-07-01' AND " + dateCol + " < '2026-10-01' ";
+            case "Yearly":
+            default:
+                return " YEAR(" + dateCol + ") = YEAR(CURRENT_TIMESTAMP) ";
+        }
+    }
 
-        String sqlSales = "SELECT " +
-                "ISNULL(SUM(net_payable), 0) AS total_sales, " +
-                "ISNULL(SUM(room_charges), 0) AS total_room_rev, " +
-                "COUNT(*) AS total_invoices " +
-                "FROM Invoices WHERE payment_status IN ('PAID', 'SETTLED')";
+    public static ExecutiveMetrics getExecutiveMetrics(String period) {
+        ExecutiveMetrics m = new ExecutiveMetrics();
+        Connection conn = DBConnection.getConnection();
+        if (conn == null) return m;
+
+        String invWhere = buildDateFilterClause(period, "settled_at");
+        String sqlSales = "SELECT ISNULL(SUM(net_payable), 0) AS total_sales, COUNT(*) AS invoice_count " +
+                "FROM Invoices WHERE payment_status = 'PAID' AND " + invWhere;
 
         String sqlOcc = "SELECT " +
-                "COUNT(*) AS total_rooms, " +
-                "SUM(CASE WHEN status = 'OCCUPIED' THEN 1 ELSE 0 END) AS occupied_rooms " +
-                "FROM Rooms";
+                "  (SELECT COUNT(*) FROM Rooms WHERE status = 'OCCUPIED') AS occupied_count, " +
+                "  (SELECT COUNT(*) FROM Rooms WHERE status != 'MAINTENANCE') AS total_rooms";
 
         try {
-            BigDecimal totalSales = BigDecimal.ZERO;
-            BigDecimal roomRev = BigDecimal.ZERO;
+            BigDecimal totalGross = BigDecimal.ZERO;
             int invoiceCount = 0;
 
             try (PreparedStatement pst = conn.prepareStatement(sqlSales);
                  ResultSet rs = pst.executeQuery()) {
                 if (rs.next()) {
-                    totalSales = rs.getBigDecimal("total_sales");
-                    roomRev = rs.getBigDecimal("total_room_rev");
-                    invoiceCount = rs.getInt("total_invoices");
+                    totalGross = rs.getBigDecimal("total_sales");
+                    invoiceCount = rs.getInt("invoice_count");
                 }
             }
 
-            DecimalFormat df = new DecimalFormat("#,##0");
-            metrics.grossSales = df.format(totalSales) + " MMK";
+            m.grossSales = String.format("%,d MMK", totalGross.longValue());
 
-            if (invoiceCount > 0) {
-                BigDecimal adrVal = roomRev.divide(BigDecimal.valueOf(invoiceCount), BigDecimal.ROUND_HALF_UP);
-                metrics.adr = df.format(adrVal) + " MMK";
-            } else {
-                metrics.adr = "0 MMK";
-            }
+            BigDecimal adr = invoiceCount > 0 ? totalGross.divide(BigDecimal.valueOf(invoiceCount), BigDecimal.ROUND_HALF_UP) : BigDecimal.ZERO;
+            m.adr = String.format("%,d MMK", adr.longValue());
+
+            BigDecimal expenses = totalGross.multiply(new BigDecimal("0.28"));
+            m.operatingExpenses = String.format("%,d MMK", expenses.longValue());
+
+            BigDecimal netProfit = totalGross.subtract(expenses);
+            double margin = totalGross.compareTo(BigDecimal.ZERO) > 0
+                    ? (netProfit.doubleValue() / totalGross.doubleValue()) * 100.0
+                    : 0.0;
+            m.netMargin = String.format("%.1f%%", margin);
 
             try (PreparedStatement pstOcc = conn.prepareStatement(sqlOcc);
                  ResultSet rsOcc = pstOcc.executeQuery()) {
                 if (rsOcc.next()) {
+                    int occ = rsOcc.getInt("occupied_count");
                     int total = rsOcc.getInt("total_rooms");
-                    int occupied = rsOcc.getInt("occupied_rooms");
-                    if (total > 0) {
-                        double rate = ((double) occupied / total) * 100.0;
-                        metrics.occupancyRate = String.format("%.1f%%", rate);
-                    }
+                    double occRate = total > 0 ? ((double) occ / total) * 100.0 : 0.0;
+                    m.occupancyRate = String.format("%.1f%%", occRate);
                 }
-            }
-
-            BigDecimal expenses = totalSales.multiply(new BigDecimal("0.28"));
-            metrics.operatingExpenses = df.format(expenses) + " MMK";
-
-            BigDecimal netProfit = totalSales.subtract(expenses);
-            if (totalSales.compareTo(BigDecimal.ZERO) > 0) {
-                double margin = netProfit.divide(totalSales, 4, BigDecimal.ROUND_HALF_UP).doubleValue() * 100.0;
-                metrics.netMargin = String.format("%.1f%%", margin);
-            } else {
-                metrics.netMargin = "0.0%";
             }
 
         } catch (SQLException e) {
             e.printStackTrace();
         }
-
-        return metrics;
+        return m;
     }
 
-    public static SegmentDistribution getDistributionBreakdown() {
+    public static SegmentDistribution getDistributionBreakdown(String period) {
         SegmentDistribution dist = new SegmentDistribution();
         Connection conn = DBConnection.getConnection();
         if (conn == null) return dist;
 
-        String tierSql = "SELECT pt.tier_name, ISNULL(SUM(i.net_payable), 0) AS tier_rev " +
-                "FROM Invoices i " +
-                "INNER JOIN Bookings b ON i.booking_ref = b.booking_ref " +
-                "INNER JOIN PricingTiers pt ON b.tier_id = pt.tier_id " +
-                "WHERE i.payment_status IN ('PAID', 'SETTLED') " +
+        String bkgDateWhere = buildDateFilterClause(period, "b.created_at");
+        String sqlSegments = "SELECT ISNULL(pt.tier_name, 'Other') AS tier_type, ISNULL(SUM(b.room_total_amount), 0) AS total_rev " +
+                "FROM Bookings b " +
+                "LEFT JOIN PricingTiers pt ON b.tier_id = pt.tier_id " +
+                "WHERE b.booking_status IN ('CONFIRMED', 'CHECKED-IN', 'COMPLETED') AND " + bkgDateWhere +
                 "GROUP BY pt.tier_name";
 
-        String deptSql = "SELECT " +
-                "ISNULL(SUM(room_charges), 0) AS room_rev, " +
-                "ISNULL(SUM(service_charges), 0) AS service_rev, " +
-                "ISNULL(SUM(net_payable), 0) AS total_rev " +
-                "FROM Invoices WHERE payment_status IN ('PAID', 'SETTLED')";
+        String invDateWhere = buildDateFilterClause(period, "settled_at");
+        String sqlDepts = "SELECT ISNULL(SUM(room_charges), 0) AS total_room, ISNULL(SUM(service_charges), 0) AS total_service " +
+                "FROM Invoices WHERE payment_status = 'PAID' AND " + invDateWhere;
 
         try {
-            BigDecimal totalTierRev = BigDecimal.ZERO;
-            try (PreparedStatement pst = conn.prepareStatement(tierSql);
+            BigDecimal totalSegmentRev = BigDecimal.ZERO;
+            try (PreparedStatement pst = conn.prepareStatement(sqlSegments);
                  ResultSet rs = pst.executeQuery()) {
                 while (rs.next()) {
-                    String name = rs.getString("tier_name");
-                    BigDecimal val = rs.getBigDecimal("tier_rev");
-                    totalTierRev = totalTierRev.add(val);
+                    String tier = rs.getString("tier_type").toLowerCase();
+                    BigDecimal amt = rs.getBigDecimal("total_rev");
+                    totalSegmentRev = totalSegmentRev.add(amt);
 
-                    if (name.toLowerCase().contains("staycation")) dist.staycationRev = val;
-                    else if (name.toLowerCase().contains("daycation")) dist.daycationRev = val;
-                    else if (name.toLowerCase().contains("night")) dist.nightStayRev = val;
+                    if (tier.contains("staycation")) dist.staycationRev = dist.staycationRev.add(amt);
+                    else if (tier.contains("daycation")) dist.daycationRev = dist.daycationRev.add(amt);
+                    else if (tier.contains("transit") || tier.contains("night")) dist.nightStayRev = dist.nightStayRev.add(amt);
                 }
             }
 
-            if (totalTierRev.compareTo(BigDecimal.ZERO) > 0) {
-                dist.staycationPct = dist.staycationRev.multiply(new BigDecimal(100)).divide(totalTierRev, BigDecimal.ROUND_HALF_UP).intValue();
-                dist.daycationPct = dist.daycationRev.multiply(new BigDecimal(100)).divide(totalTierRev, BigDecimal.ROUND_HALF_UP).intValue();
-                dist.nightStayPct = dist.nightStayRev.multiply(new BigDecimal(100)).divide(totalTierRev, BigDecimal.ROUND_HALF_UP).intValue();
+            if (totalSegmentRev.compareTo(BigDecimal.ZERO) > 0) {
+                dist.staycationPct = (int) Math.round((dist.staycationRev.doubleValue() / totalSegmentRev.doubleValue()) * 100.0);
+                dist.daycationPct = (int) Math.round((dist.daycationRev.doubleValue() / totalSegmentRev.doubleValue()) * 100.0);
+                dist.nightStayPct = Math.max(0, 100 - (dist.staycationPct + dist.daycationPct));
             }
 
-            try (PreparedStatement pstDept = conn.prepareStatement(deptSql);
-                 ResultSet rsDept = pstDept.executeQuery()) {
-                if (rsDept.next()) {
-                    dist.roomRev = rsDept.getBigDecimal("room_rev");
-                    BigDecimal totalSrv = rsDept.getBigDecimal("service_rev");
-                    BigDecimal grandTotal = rsDept.getBigDecimal("total_rev");
-
-                    dist.diningRev = totalSrv.multiply(new BigDecimal("0.70"));
-                    dist.spaLaundryRev = totalSrv.multiply(new BigDecimal("0.30"));
-
-                    if (grandTotal.compareTo(BigDecimal.ZERO) > 0) {
-                        dist.roomPct = dist.roomRev.multiply(new BigDecimal(100)).divide(grandTotal, BigDecimal.ROUND_HALF_UP).intValue();
-                        dist.diningPct = dist.diningRev.multiply(new BigDecimal(100)).divide(grandTotal, BigDecimal.ROUND_HALF_UP).intValue();
-                        dist.spaLaundryPct = dist.spaLaundryRev.multiply(new BigDecimal(100)).divide(grandTotal, BigDecimal.ROUND_HALF_UP).intValue();
-                    }
+            try (PreparedStatement pstD = conn.prepareStatement(sqlDepts);
+                 ResultSet rsD = pstD.executeQuery()) {
+                if (rsD.next()) {
+                    dist.roomRev = rsD.getBigDecimal("total_room");
+                    dist.diningRev = rsD.getBigDecimal("total_service");
+                    dist.spaLaundryRev = BigDecimal.ZERO; // Optional service ledger
                 }
             }
+
+            BigDecimal totalDept = dist.roomRev.add(dist.diningRev).add(dist.spaLaundryRev);
+            if (totalDept.compareTo(BigDecimal.ZERO) > 0) {
+                dist.roomPct = (int) Math.round((dist.roomRev.doubleValue() / totalDept.doubleValue()) * 100.0);
+                dist.diningPct = (int) Math.round((dist.diningRev.doubleValue() / totalDept.doubleValue()) * 100.0);
+                dist.spaLaundryPct = Math.max(0, 100 - (dist.roomPct + dist.diningPct));
+            }
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
-
         return dist;
     }
 
-    public static Vector<Vector<Object>> getAuditLedger() {
-        Vector<Vector<Object>> rows = new Vector<>();
+    public static Vector<Vector<Object>> getAuditLedger(String period) {
+        Vector<Vector<Object>> data = new Vector<>();
         Connection conn = DBConnection.getConnection();
-        if (conn == null) return rows;
+        if (conn == null) return data;
 
-        String sql = "SELECT " +
-                "CONVERT(VARCHAR(10), ISNULL(i.settled_at, i.issued_at), 103) AS ledger_date, " +
-                "i.invoice_id, " +
-                "g.full_name, " +
-                "pt.tier_name, " +
-                "i.room_charges, " +
-                "i.service_charges, " +
-                "i.net_payable, " +
-                "i.payment_status " +
-                "FROM Invoices i " +
-                "INNER JOIN Guests g ON i.guest_id = g.guest_id " +
-                "INNER JOIN Bookings b ON i.booking_ref = b.booking_ref " +
-                "INNER JOIN PricingTiers pt ON b.tier_id = pt.tier_id " +
-                "ORDER BY ISNULL(i.settled_at, i.issued_at) DESC";
+        String invDateWhere = buildDateFilterClause(period, "inv.settled_at");
+        String sql = "SELECT CONVERT(VARCHAR(10), inv.settled_at, 103) AS inv_date, " +
+                "inv.invoice_id, " +
+                "ISNULL(g.full_name, 'Guest') AS guest_name, " +
+                "ISNULL(pt.tier_name, 'Staycation') AS stay_tier, " +
+                "inv.room_charges, inv.service_charges, inv.net_payable, inv.payment_status " +
+                "FROM Invoices inv " +
+                "LEFT JOIN Guests g ON inv.guest_id = g.guest_id " +
+                "LEFT JOIN Bookings b ON inv.booking_ref = b.booking_ref " +
+                "LEFT JOIN PricingTiers pt ON b.tier_id = pt.tier_id " +
+                "WHERE " + invDateWhere +
+                "ORDER BY inv.settled_at DESC";
 
         try (PreparedStatement pst = conn.prepareStatement(sql);
              ResultSet rs = pst.executeQuery()) {
             while (rs.next()) {
                 Vector<Object> row = new Vector<>();
-                row.add(rs.getString("ledger_date"));
+                row.add(rs.getString("inv_date"));
                 row.add(rs.getString("invoice_id"));
-                row.add(rs.getString("full_name"));
-                row.add(rs.getString("tier_name"));
+                row.add(rs.getString("guest_name"));
+                row.add(rs.getString("stay_tier"));
                 row.add(String.format("%,d MMK", rs.getBigDecimal("room_charges").longValue()));
                 row.add(String.format("%,d MMK", rs.getBigDecimal("service_charges").longValue()));
                 row.add(String.format("%,d MMK", rs.getBigDecimal("net_payable").longValue()));
-                row.add(rs.getString("payment_status").toUpperCase());
-                rows.add(row);
+                row.add(rs.getString("payment_status"));
+                data.add(row);
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-
-        return rows;
+        return data;
     }
 }

@@ -1,541 +1,3 @@
-/*
-package view;
-
-import model.DBConnection;
-
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import javax.swing.border.LineBorder;
-import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.util.UUID;
-
-public class Customer_UI extends JFrame {
-    private static final Color TEXT_GRAY = new Color(100, 100, 100);
-
-    public Customer_UI() {
-        setLayout(new GridLayout(1, 2));
-        setTitle("Hotel Reservation Systems - Customer Register");
-        setSize(850, 620);
-        setLocationRelativeTo(null);
-        setResizable(false);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
-        User_UI userUi = new User_UI();
-
-        add(userUi.leftBanner());
-        add(rightBanner());
-    }
-
-    private JPanel rightBanner() {
-        JPanel formPanel = new JPanel();
-        formPanel.setBackground(Color.WHITE);
-        formPanel.setLayout(new BoxLayout(formPanel, BoxLayout.Y_AXIS));
-        formPanel.setBorder(new EmptyBorder(25, 45, 25, 45));
-
-        JLabel lblFormTitle = new JLabel("Customer Register");
-        lblFormTitle.setFont(new Font("Century Gothic", Font.BOLD, 22));
-        lblFormTitle.setForeground(Color.BLACK);
-        lblFormTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JLabel lblFullName = new JLabel("Full Name");
-        lblFullName.setFont(new Font("Century Gothic", Font.BOLD, 12));
-        lblFullName.setForeground(Color.BLACK);
-        lblFullName.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JTextField txtFullName = createStyledTextField();
-
-        JLabel lblPhone = new JLabel("Phone");
-        lblPhone.setFont(new Font("Century Gothic", Font.BOLD, 12));
-        lblPhone.setForeground(Color.BLACK);
-        lblPhone.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JTextField txtPhone = createStyledTextField();
-
-        JLabel lblEmail = new JLabel("Email");
-        lblEmail.setFont(new Font("Century Gothic", Font.BOLD, 12));
-        lblEmail.setForeground(Color.BLACK);
-        lblEmail.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JTextField txtEmail = createStyledTextField();
-
-        JLabel lblIDProof = new JLabel("ID (NRC or Passport Number)");
-        lblIDProof.setFont(new Font("Century Gothic", Font.BOLD, 12));
-        lblIDProof.setForeground(Color.BLACK);
-        lblIDProof.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JTextField txtIDProof = createStyledTextField();
-
-        JLabel lblPass = new JLabel("Password");
-        lblPass.setFont(new Font("Century Gothic", Font.BOLD, 12));
-        lblPass.setForeground(Color.BLACK);
-        lblPass.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JPasswordField txtPass = createStyledPasswordField();
-
-        JPanel buttonRow = new JPanel(new GridLayout(1, 2, 12, 0));
-        buttonRow.setOpaque(false);
-        buttonRow.setMaximumSize(new Dimension(1400, 36));
-        buttonRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JButton btnClear = new JButton("Clear");
-        btnClear.setFont(new Font("Century Gothic", Font.BOLD, 12));
-        btnClear.setBackground(new Color(241, 245, 249));
-        btnClear.setForeground(new Color(71, 85, 105));
-        btnClear.setFocusPainted(false);
-        btnClear.setBorderPainted(false);
-        btnClear.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-        btnClear.addActionListener(e -> {
-            txtFullName.setText("");
-            txtPhone.setText("");
-            txtEmail.setText("");
-            txtPass.setText("");
-            txtIDProof.setText("");
-        });
-
-        JButton btnRegister = new JButton("Register");
-        btnRegister.setFont(new Font("Century Gothic", Font.BOLD, 12));
-        btnRegister.setBackground(new Color(16, 185, 129));
-        btnRegister.setForeground(Color.WHITE);
-        btnRegister.setFocusPainted(false);
-        btnRegister.setBorderPainted(false);
-        btnRegister.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-        btnRegister.addActionListener(e -> {
-            String fullName = txtFullName.getText().trim();
-            String phone = txtPhone.getText().trim();
-            String email = txtEmail.getText().trim();
-            String password = new String(txtPass.getPassword()).trim();
-            String idProof = txtIDProof.getText().trim();
-
-            if (fullName.isEmpty() || phone.isEmpty() || email.isEmpty() || password.isEmpty() || idProof.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Please fill in all fields.", "Validation Error", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            boolean registered = registerCustomerInDB(fullName, phone, email, password, idProof);
-
-            if (registered) {
-                JOptionPane.showMessageDialog(this, "Registration Successful! You can now log in.", "Success", JOptionPane.INFORMATION_MESSAGE);
-                Customer_UI.this.dispose();
-                SwingUtilities.invokeLater(() -> new User_UI().setVisible(true));
-            } else {
-                JOptionPane.showMessageDialog(this, "Registration Failed. Email, Phone, or Username might already exist.", "Error", JOptionPane.ERROR_MESSAGE);
-            }
-        });
-
-        buttonRow.add(btnClear);
-        buttonRow.add(btnRegister);
-
-        JPanel footerLink = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        footerLink.setOpaque(false);
-        footerLink.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JLabel loginLink = new JLabel("<html>Already a Member? <span style='color:#6366F1; font-weight:bold;'>Login Here</span></html>");
-        loginLink.setFont(new Font("Century Gothic", Font.PLAIN, 12));
-        loginLink.setForeground(TEXT_GRAY);
-        loginLink.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        loginLink.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                Customer_UI.this.dispose();
-                SwingUtilities.invokeLater(() -> new User_UI().setVisible(true));
-            }
-        });
-        footerLink.add(loginLink);
-
-        formPanel.add(lblFormTitle);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 16)));
-        formPanel.add(lblFullName);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 4)));
-        formPanel.add(txtFullName);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 10)));
-        formPanel.add(lblPhone);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 4)));
-        formPanel.add(txtPhone);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 10)));
-        formPanel.add(lblEmail);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 4)));
-        formPanel.add(txtEmail);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 10)));
-        formPanel.add(lblPass);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 4)));
-        formPanel.add(txtPass);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 10)));
-        formPanel.add(lblIDProof);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 4)));
-        formPanel.add(txtIDProof);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 20)));
-        formPanel.add(buttonRow);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 12)));
-        formPanel.add(footerLink);
-
-        return formPanel;
-    }
-
-    private boolean registerCustomerInDB(String fullName, String phone, String email, String password, String idProof) {
-        Connection conn = DBConnection.getConnection();
-        if (conn == null) return false;
-
-        String userId = "USR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        String guestId = "GST-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        String username = email.contains("@") ? email.substring(0, email.indexOf("@")) : email;
-
-        String insertUserSql = "INSERT INTO Users (user_id, full_name, username, email, password_hash, phone, role, status) " +
-                "VALUES (?, ?, ?, ?, ?, ?, 'STAFF', 'ACTIVE')";
-
-        String insertGuestSql = "INSERT INTO Guests (guest_id, user_id, full_name, nid_passport, phone, email, city, vip_tier, loyalty_points, guest_status) " +
-                "VALUES (?, ?, ?, ?, ?, ?, 'Yangon', 'STANDARD', 0, 'ACTIVE')";
-
-        try {
-            conn.setAutoCommit(false);
-
-            try (PreparedStatement pstUser = conn.prepareStatement(insertUserSql)) {
-                pstUser.setString(1, userId);
-                pstUser.setString(2, fullName);
-                pstUser.setString(3, username);
-                pstUser.setString(4, email);
-                pstUser.setString(5, password);
-                pstUser.setString(6, phone);
-                pstUser.executeUpdate();
-            }
-
-            try (PreparedStatement pstGuest = conn.prepareStatement(insertGuestSql)) {
-                pstGuest.setString(1, guestId);
-                pstGuest.setString(2, userId);
-                pstGuest.setString(3, fullName);
-                pstGuest.setString(4, idProof);
-                pstGuest.setString(5, phone);
-                pstGuest.setString(6, email);
-                pstGuest.executeUpdate();
-            }
-
-            conn.commit();
-            return true;
-        } catch (SQLException e) {
-            try {
-                conn.rollback();
-            } catch (SQLException ignored) {}
-            e.printStackTrace();
-            return false;
-        } finally {
-            try {
-                conn.setAutoCommit(true);
-            } catch (SQLException ignored) {}
-        }
-    }
-
-    private JTextField createStyledTextField() {
-        JTextField tf = new JTextField();
-        tf.setFont(new Font("Century Gothic", Font.PLAIN, 12));
-        tf.setMaximumSize(new Dimension(1400, 32));
-        tf.setPreferredSize(new Dimension(1400, 32));
-        tf.setAlignmentX(Component.LEFT_ALIGNMENT);
-        tf.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(new Color(226, 232, 240), 1, true),
-                new EmptyBorder(4, 10, 4, 10)
-        ));
-        return tf;
-    }
-
-    private JPasswordField createStyledPasswordField() {
-        JPasswordField pf = new JPasswordField();
-        pf.setFont(new Font("Century Gothic", Font.PLAIN, 12));
-        pf.setMaximumSize(new Dimension(1400, 32));
-        pf.setPreferredSize(new Dimension(1400, 32));
-        pf.setAlignmentX(Component.LEFT_ALIGNMENT);
-        pf.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(new Color(226, 232, 240), 1, true),
-                new EmptyBorder(4, 10, 4, 10)
-        ));
-        return pf;
-    }
-}*//*
-
-
-package view;
-
-import model.DBConnection;
-
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import javax.swing.border.LineBorder;
-import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.util.UUID;
-
-public class Customer_UI extends JFrame {
-    private static final Color TEXT_GRAY = new Color(100, 100, 100);
-
-    public Customer_UI() {
-        setLayout(new GridLayout(1, 2));
-        setTitle("Hotel Reservation Systems - Customer Register");
-        setSize(850, 620);
-        setLocationRelativeTo(null);
-        setResizable(false);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
-        User_UI userUi = new User_UI();
-
-        util.AppIcon.setFrameIcon(this, "/images/favicon1.png");
-
-        add(userUi.leftBanner());
-        add(rightBanner());
-    }
-
-    private JPanel rightBanner() {
-        JPanel formPanel = new JPanel();
-        formPanel.setBackground(Color.WHITE);
-        formPanel.setLayout(new BoxLayout(formPanel, BoxLayout.Y_AXIS));
-        formPanel.setBorder(new EmptyBorder(25, 45, 25, 45));
-
-        JLabel lblFormTitle = new JLabel("Customer Register");
-        lblFormTitle.setFont(new Font("Century Gothic", Font.BOLD, 22));
-        lblFormTitle.setForeground(Color.BLACK);
-        lblFormTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JLabel lblFullName = new JLabel("Full Name");
-        lblFullName.setFont(new Font("Century Gothic", Font.BOLD, 12));
-        lblFullName.setForeground(Color.BLACK);
-        lblFullName.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JTextField txtFullName = createStyledTextField();
-
-        JLabel lblPhone = new JLabel("Phone");
-        lblPhone.setFont(new Font("Century Gothic", Font.BOLD, 12));
-        lblPhone.setForeground(Color.BLACK);
-        lblPhone.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JTextField txtPhone = createStyledTextField();
-
-        JLabel lblEmail = new JLabel("Email");
-        lblEmail.setFont(new Font("Century Gothic", Font.BOLD, 12));
-        lblEmail.setForeground(Color.BLACK);
-        lblEmail.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JTextField txtEmail = createStyledTextField();
-
-        JLabel lblIDProof = new JLabel("ID (NRC or Passport Number)");
-        lblIDProof.setFont(new Font("Century Gothic", Font.BOLD, 12));
-        lblIDProof.setForeground(Color.BLACK);
-        lblIDProof.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JTextField txtIDProof = createStyledTextField();
-
-        JLabel lblPass = new JLabel("Password");
-        lblPass.setFont(new Font("Century Gothic", Font.BOLD, 12));
-        lblPass.setForeground(Color.BLACK);
-        lblPass.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JPasswordField txtPass = createStyledPasswordField();
-
-        JPanel buttonRow = new JPanel(new GridLayout(1, 2, 12, 0));
-        buttonRow.setOpaque(false);
-        buttonRow.setMaximumSize(new Dimension(1400, 36));
-        buttonRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JButton btnClear = new JButton("Clear");
-        btnClear.setFont(new Font("Century Gothic", Font.BOLD, 12));
-        btnClear.setBackground(new Color(241, 245, 249));
-        btnClear.setForeground(new Color(71, 85, 105));
-        btnClear.setFocusPainted(false);
-        btnClear.setBorderPainted(false);
-        btnClear.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-        btnClear.addActionListener(e -> {
-            txtFullName.setText("");
-            txtPhone.setText("");
-            txtEmail.setText("");
-            txtPass.setText("");
-            txtIDProof.setText("");
-        });
-
-        JButton btnRegister = new JButton("Register");
-        btnRegister.setFont(new Font("Century Gothic", Font.BOLD, 12));
-        btnRegister.setBackground(new Color(16, 185, 129));
-        btnRegister.setForeground(Color.WHITE);
-        btnRegister.setFocusPainted(false);
-        btnRegister.setBorderPainted(false);
-        btnRegister.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-        btnRegister.addActionListener(e -> {
-            String fullName = txtFullName.getText().trim();
-            String phone = txtPhone.getText().trim();
-            String email = txtEmail.getText().trim();
-            String password = new String(txtPass.getPassword()).trim();
-            String idProof = txtIDProof.getText().trim();
-
-            if (fullName.isEmpty() || phone.isEmpty() || email.isEmpty() || password.isEmpty() || idProof.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Please fill in all fields.", "Validation Error", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            if (!email.contains("@") || !email.contains(".")) {
-                JOptionPane.showMessageDialog(this, "Please enter a valid email address.", "Invalid Email", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            // 1. Trigger OTP Verification Dialog
-            EmailVerificationDialog verifyDialog = new EmailVerificationDialog(this, email, fullName);
-            verifyDialog.setVisible(true);
-
-            // 2. Abort if user closed dialog without validating OTP
-            if (!verifyDialog.isVerified()) {
-                JOptionPane.showMessageDialog(this, "Registration cancelled: Email address was not verified.", "Verification Required", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            // 3. Commit Verified Record into Database
-            boolean registered = registerCustomerInDB(fullName, phone, email, password, idProof);
-
-            if (registered) {
-                JOptionPane.showMessageDialog(this, "Registration Successful! Your email has been verified. You can now log in.", "Success", JOptionPane.INFORMATION_MESSAGE);
-                Customer_UI.this.dispose();
-                SwingUtilities.invokeLater(() -> new User_UI().setVisible(true));
-            } else {
-                JOptionPane.showMessageDialog(this, "Registration Failed. Email, Phone, or Username might already exist.", "Error", JOptionPane.ERROR_MESSAGE);
-            }
-        });
-
-
-        buttonRow.add(btnClear);
-        buttonRow.add(btnRegister);
-
-        JPanel footerLink = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        footerLink.setOpaque(false);
-        footerLink.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JLabel loginLink = new JLabel("<html>Already a Member? <span style='color:#6366F1; font-weight:bold;'>Login Here</span></html>");
-        loginLink.setFont(new Font("Century Gothic", Font.PLAIN, 12));
-        loginLink.setForeground(TEXT_GRAY);
-        loginLink.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        loginLink.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                Customer_UI.this.dispose();
-                SwingUtilities.invokeLater(() -> new User_UI().setVisible(true));
-            }
-        });
-        footerLink.add(loginLink);
-
-        formPanel.add(lblFormTitle);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 16)));
-        formPanel.add(lblFullName);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 4)));
-        formPanel.add(txtFullName);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 10)));
-        formPanel.add(lblPhone);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 4)));
-        formPanel.add(txtPhone);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 10)));
-        formPanel.add(lblEmail);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 4)));
-        formPanel.add(txtEmail);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 10)));
-        formPanel.add(lblPass);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 4)));
-        formPanel.add(txtPass);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 10)));
-        formPanel.add(lblIDProof);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 4)));
-        formPanel.add(txtIDProof);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 20)));
-        formPanel.add(buttonRow);
-        formPanel.add(Box.createRigidArea(new Dimension(0, 12)));
-        formPanel.add(footerLink);
-
-        return formPanel;
-    }
-
-    private boolean registerCustomerInDB(String fullName, String phone, String email, String password, String idProof) {
-        Connection conn = DBConnection.getConnection();
-        if (conn == null) return false;
-
-        String guestId = "GST-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        String username = email.contains("@") ? email.substring(0, email.indexOf("@")) : email;
-
-//        String insertUserSql = "INSERT INTO Users (user_id, full_name, username, email, password_hash, phone, role, status) " +
-//                "VALUES (?, ?, ?, ?, ?, ?, 'CUSTOMER', 'ACTIVE')";
-
-        String insertGuestSql = "INSERT INTO Guests (guest_id, full_name, nid_passport, phone, email, password_hash, city, vip_tier, loyalty_points, guest_status) " +
-                "VALUES (?, ?, ?, ?, ?, ?, 'Yangon', 'STANDARD', 0, 'ACTIVE')";
-
-        try {
-            conn.setAutoCommit(false);
-
-            */
-/*try (PreparedStatement pstUser = conn.prepareStatement(insertUserSql)) {
-                pstUser.setString(1, userId);
-                pstUser.setString(2, fullName);
-                pstUser.setString(3, username);
-                pstUser.setString(4, email);
-                pstUser.setString(5, password);
-                pstUser.setString(6, phone);
-                pstUser.executeUpdate();
-            }*//*
-
-
-            try (PreparedStatement pstGuest = conn.prepareStatement(insertGuestSql)) {
-                pstGuest.setString(1, guestId);
-                pstGuest.setString(2, fullName);
-                pstGuest.setString(3, idProof);
-                pstGuest.setString(4, phone);
-                pstGuest.setString(5, email);
-                pstGuest.setString(6, password);
-                pstGuest.executeUpdate();
-            }
-
-            conn.commit();
-            return true;
-        } catch (SQLException e) {
-            try {
-                conn.rollback();
-            } catch (SQLException ignored) {}
-            e.printStackTrace();
-            return false;
-        } finally {
-            try {
-                conn.setAutoCommit(true);
-            } catch (SQLException ignored) {}
-        }
-    }
-
-    private JTextField createStyledTextField() {
-        JTextField tf = new JTextField();
-        tf.setFont(new Font("Century Gothic", Font.PLAIN, 12));
-        tf.setMaximumSize(new Dimension(1400, 32));
-        tf.setPreferredSize(new Dimension(1400, 32));
-        tf.setAlignmentX(Component.LEFT_ALIGNMENT);
-        tf.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(new Color(226, 232, 240), 1, true),
-                new EmptyBorder(4, 10, 4, 10)
-        ));
-        return tf;
-    }
-
-    private JPasswordField createStyledPasswordField() {
-        JPasswordField pf = new JPasswordField();
-        pf.setFont(new Font("Century Gothic", Font.PLAIN, 12));
-        pf.setMaximumSize(new Dimension(1400, 32));
-        pf.setPreferredSize(new Dimension(1400, 32));
-        pf.setAlignmentX(Component.LEFT_ALIGNMENT);
-        pf.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(new Color(226, 232, 240), 1, true),
-                new EmptyBorder(4, 10, 4, 10)
-        ));
-        return pf;
-    }
-}*/
-
 package view;
 
 import model.DBConnection;
@@ -562,10 +24,10 @@ public class Customer_UI extends JFrame {
 
     public Customer_UI() {
         setTitle("Grand Horizon Suites - Guest Registration");
-        setSize(980, 640);
-        setLocationRelativeTo(null);
-        setResizable(false);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+        setExtendedState(MAXIMIZED_BOTH);
+        setMinimumSize(new Dimension(1024, 640));
         setLayout(new GridLayout(1, 2));
 
         AppIcon.setFrameIcon(this, "/images/favicon1.png");
@@ -581,61 +43,60 @@ public class Customer_UI extends JFrame {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
 
-                // Ultra-smooth rendering & interpolation
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
                 g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 
-                // Deep Midnight Gradient Background
-                GradientPaint gp = new GradientPaint(
-                        0, 0, new Color(15, 23, 42),
-                        getWidth(), getHeight(), new Color(30, 41, 59)
-                );
-                g2.setPaint(gp);
-                g2.fillRect(0, 0, getWidth(), getHeight());
-
-                // Ambient Glow Orbs (Emerald + Indigo)
-                g2.setColor(new Color(99, 102, 241, 35));
-                g2.fillOval(-60, -60, 280, 280);
-
-                g2.setColor(new Color(168, 85, 247, 28));
-                g2.fillOval(getWidth() - 200, getHeight() - 220, 300, 300);
-
                 int panelW = getWidth();
                 int panelH = getHeight();
-                int centerY = panelH / 2 - 15;
+                int centerY = panelH / 2;
 
-                // Prominent Centered Hero Logo
+                GradientPaint gp = new GradientPaint(
+                        0, 0, new Color(15, 23, 42),
+                        panelW, panelH, new Color(30, 41, 59)
+                );
+                g2.setPaint(gp);
+                g2.fillRect(0, 0, panelW, panelH);
+
+                g2.setColor(new Color(99, 102, 241, 35));
+                g2.fillOval(-80, -80, 420, 420);
+
+                g2.setColor(new Color(16, 185, 129, 25));
+                g2.fillOval(panelW - 320, panelH - 340, 440, 440);
+
                 URL logoUrl = getClass().getResource("/images/logo3.png");
+                int logoWidth = 280;
+                int logoHeight = 186;
+                int logoX = (panelW - logoWidth) / 2;
+                int logoY = centerY - logoHeight - 20;
+
                 if (logoUrl != null) {
                     Image logo = new ImageIcon(logoUrl).getImage();
-
-                    int logoWidth = 240;
-                    int logoHeight = 160;
-                    int logoX = (panelW - logoWidth) / 2;
-                    int logoY = centerY - (logoHeight / 2) - 30;
-
                     g2.drawImage(logo, logoX, logoY, logoWidth, logoHeight, this);
+                } else {
+                    g2.setColor(Color.WHITE);
+                    g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 48));
+                    FontMetrics fm = g2.getFontMetrics();
+                    String fallback = "🏨";
+                    g2.drawString(fallback, (panelW - fm.stringWidth(fallback)) / 2, logoY + 100);
                 }
 
-                // Subtitle Badges (Cleaned up, no redundant title text)
                 g2.setColor(new Color(129, 140, 248));
-                g2.setFont(new Font("Century Gothic", Font.BOLD, 12));
+                g2.setFont(new Font("Century Gothic", Font.BOLD, 14));
                 FontMetrics fm1 = g2.getFontMetrics();
                 String badge = "EXCLUSIVE GUEST MEMBERSHIP";
-                g2.drawString(badge, (panelW - fm1.stringWidth(badge)) / 2, centerY + 100);
+                g2.drawString(badge, (panelW - fm1.stringWidth(badge)) / 2, centerY + 36);
 
                 g2.setColor(new Color(148, 163, 184));
-                g2.setFont(new Font("Century Gothic", Font.PLAIN, 11));
+                g2.setFont(new Font("Century Gothic", Font.PLAIN, 12));
                 FontMetrics fm2 = g2.getFontMetrics();
-                String sub = "Unlock instant loyalty rewards, fast check-in & amenities";
-                g2.drawString(sub, (panelW - fm2.stringWidth(sub)) / 2, centerY + 122);
+                String sub = "Unlock instant loyalty rewards, fast check-in & VIP amenities";
+                g2.drawString(sub, (panelW - fm2.stringWidth(sub)) / 2, centerY + 62);
 
-                // Bottom Brand Footer
-                g2.setColor(new Color(100, 116, 139, 150));
-                g2.setFont(new Font("Century Gothic", Font.PLAIN, 10));
-                String ver = "Grand Horizon Hospitality Group";
-                g2.drawString(ver, (panelW - g2.getFontMetrics().stringWidth(ver)) / 2, panelH - 24);
+                g2.setColor(new Color(100, 116, 139, 160));
+                g2.setFont(new Font("Century Gothic", Font.PLAIN, 11));
+                String ver = "Grand Horizon Hospitality Group • Global Guest Experience";
+                g2.drawString(ver, (panelW - g2.getFontMetrics().stringWidth(ver)) / 2, panelH - 32);
 
                 g2.dispose();
             }
@@ -643,46 +104,48 @@ public class Customer_UI extends JFrame {
     }
 
     private JPanel createRegisterFormPanel() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setBackground(Color.WHITE);
-        panel.setBorder(new EmptyBorder(30, 42, 30, 42));
+        JPanel outerContainer = new JPanel(new GridBagLayout());
+        outerContainer.setBackground(Color.WHITE);
 
-        // Form Title
+        JPanel formCard = new JPanel();
+        formCard.setLayout(new BoxLayout(formCard, BoxLayout.Y_AXIS));
+        formCard.setOpaque(false);
+        formCard.setPreferredSize(new Dimension(460, 580));
+        formCard.setMaximumSize(new Dimension(460, 580));
+        formCard.setBorder(new EmptyBorder(10, 10, 10, 10));
+
         JLabel lblTitle = new JLabel("Create Guest Account");
-        lblTitle.setFont(new Font("Century Gothic", Font.BOLD, 20));
+        lblTitle.setFont(new Font("Century Gothic", Font.BOLD, 24));
         lblTitle.setForeground(new Color(15, 23, 42));
         lblTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel lblSub = new JLabel("Fill in your personal details to register for self-service");
-        lblSub.setFont(new Font("Century Gothic", Font.PLAIN, 11));
+        JLabel lblSub = new JLabel("Fill in your personal details to register for self-service portal amenities");
+        lblSub.setFont(new Font("Century Gothic", Font.PLAIN, 12));
         lblSub.setForeground(new Color(100, 116, 139));
         lblSub.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        panel.add(lblTitle);
-        panel.add(Box.createRigidArea(new Dimension(0, 2)));
-        panel.add(lblSub);
-        panel.add(Box.createRigidArea(new Dimension(0, 14)));
+        formCard.add(lblTitle);
+        formCard.add(Box.createRigidArea(new Dimension(0, 4)));
+        formCard.add(lblSub);
+        formCard.add(Box.createRigidArea(new Dimension(0, 20)));
 
-        // Inputs with icons
         txtFullName = new JTextField();
         txtPhone = new JTextField();
         txtEmail = new JTextField();
         txtIDProof = new JTextField();
         txtPass = new JPasswordField();
 
-        addInputField(panel, "Full Legal Name", txtFullName, "👤");
-        addInputField(panel, "Phone Number", txtPhone, "📞");
-        addInputField(panel, "Email Address", txtEmail, "✉️");
-        addInputField(panel, "NRC or Passport ID", txtIDProof, "🪪");
-        addInputField(panel, "Account Password", txtPass, "🔒");
+        addInputField(formCard, "Full Legal Name", txtFullName, "👤");
+        addInputField(formCard, "Phone Number", txtPhone, "📞");
+        addInputField(formCard, "Email Address", txtEmail, "✉️");
+        addInputField(formCard, "NRC or Passport ID", txtIDProof, "🪪");
+        addInputField(formCard, "Account Password", txtPass, "🔒");
 
-        panel.add(Box.createRigidArea(new Dimension(0, 4)));
+        formCard.add(Box.createRigidArea(new Dimension(0, 6)));
 
-        // Action Buttons
         JPanel actionRow = new JPanel(new GridLayout(1, 2, 12, 0));
         actionRow.setOpaque(false);
-        actionRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        actionRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
         actionRow.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JButton btnClear = new JButton("Clear");
@@ -733,13 +196,14 @@ public class Customer_UI extends JFrame {
         btnRegister.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnRegister.addActionListener(e -> handleRegistration());
 
+        getRootPane().setDefaultButton(btnRegister);
+
         actionRow.add(btnClear);
         actionRow.add(btnRegister);
 
-        panel.add(actionRow);
-        panel.add(Box.createRigidArea(new Dimension(0, 24)));
+        formCard.add(actionRow);
+        formCard.add(Box.createRigidArea(new Dimension(0, 20)));
 
-        // Login Redirect Link
         JPanel footerLink = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 0));
         footerLink.setOpaque(false);
         footerLink.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -772,10 +236,10 @@ public class Customer_UI extends JFrame {
         footerLink.add(lblNoAcc);
         footerLink.add(lblLogin);
 
-        panel.add(footerLink);
-        panel.add(Box.createVerticalGlue());
+        formCard.add(footerLink);
 
-        return panel;
+        outerContainer.add(formCard);
+        return outerContainer;
     }
 
     private void addInputField(JPanel parent, String labelText, JComponent input, String icon) {
@@ -789,7 +253,7 @@ public class Customer_UI extends JFrame {
         parent.add(lbl);
         parent.add(Box.createRigidArea(new Dimension(0, 4)));
         parent.add(wrapper);
-        parent.add(Box.createRigidArea(new Dimension(0, 8)));
+        parent.add(Box.createRigidArea(new Dimension(0, 10)));
     }
 
     private JPanel createRoundedInputBox(JComponent inputComponent, String iconSymbol) {
@@ -833,9 +297,9 @@ public class Customer_UI extends JFrame {
         };
 
         wrapper.setOpaque(false);
-        wrapper.setPreferredSize(new Dimension(Integer.MAX_VALUE, 36));
-        wrapper.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
-        wrapper.setBorder(new EmptyBorder(0, 10, 0, 10));
+        wrapper.setPreferredSize(new Dimension(Integer.MAX_VALUE, 38));
+        wrapper.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
+        wrapper.setBorder(new EmptyBorder(0, 12, 0, 12));
         wrapper.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel lblIcon = new JLabel(iconSymbol);
@@ -870,7 +334,6 @@ public class Customer_UI extends JFrame {
             return;
         }
 
-        // Email Verification Dialog hook
         EmailVerificationDialog verifyDialog = new EmailVerificationDialog(this, email, fullName);
         verifyDialog.setVisible(true);
 

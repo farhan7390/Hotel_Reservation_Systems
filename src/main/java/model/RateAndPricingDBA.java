@@ -182,4 +182,18 @@ public class RateAndPricingDBA {
             return false;
         }
     }
+
+    public static boolean deleteTariffRule(int ruleId) {
+        Connection conn = DBConnection.getConnection();
+        if (conn == null) return false;
+
+        String sql = "DELETE FROM TariffRules WHERE rule_id = ?";
+        try (PreparedStatement pst = conn.prepareStatement(sql)) {
+            pst.setInt(1, ruleId);
+            return pst.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 }
